@@ -1,0 +1,8 @@
+sentence_transformers
+openai
+pandas
+umap-learn
+hdbscan
+ntlk # maybe not
+Matplotlib 
+seaborn
