@@ -4,7 +4,7 @@ import time
 from scripts.clustering.clustering_logic.embed import embed
 from scripts.clustering.clustering_logic.reduce import reduce_dim
 from scripts.clustering.clustering_logic.cluster import cluster_embeddings
-from scripts.clustering.clustering_summary.clustering_terms import store_clustering_terms
+from scripts.clustering.clustering_summary.clustering_results import store_clustering_results
 
 
 def cluster(input_file, round_output_dir,previous_output_dir, arguments, round,progress_callback=None, indeterminate_callback=None, step_callback=None):
@@ -49,7 +49,7 @@ def cluster(input_file, round_output_dir,previous_output_dir, arguments, round,p
 
         # Analyze
         step_callback("Step 4/4: Cluster Analysis")
-        store_clustering_terms(input_file=input_file, output_dir=round_output_dir,
+        store_clustering_results(input_file=input_file, output_dir=round_output_dir,
                             embedding_file=embedding_filepath, clusters_file=cluster_filepath,
                             sel_keys_file='sel_keys.csv', cluster_terms_file='cluster_terms.csv', key_terms_file='key_terms.csv',
                             num_keys=5, 

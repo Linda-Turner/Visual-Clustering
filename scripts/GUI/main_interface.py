@@ -23,43 +23,43 @@ class ClusteringGUI:
         for widget in self.root.winfo_children():
             widget.destroy()
 
-        tk.Label(self.root, text="Welcome to the Visual Clustering Tool!", font=("Arial", 16)).pack(pady=(20, 20))
-        tk.Label(self.root, text="This tool allows the user to cluster images into groups based on their descriptions.", font=("Arial", 11)).pack(pady=(0,3))
-        tk.Label(self.root, text="Once the clusters have been generated, the user can review them to make adjustments.", font=("Arial", 11)).pack(pady=(0,3))
-        tk.Label(self.root, text="The adjustments are made by removing or altering the top k words representing each cluster.", font=("Arial", 11)).pack(pady=(0,3))
-        tk.Label(self.root, text="This process allows the user to refine the clusters to their liking.", font=("Arial", 11)).pack(pady=(0,15))
-        tk.Label(self.root, text="NOTE: The top k words stem from the image descriptions.", font=("Arial", 10)).pack(pady=(0,20))
+        tk.Label(self.root, text="Welcome to the Visual Clustering Tool!", font=("Arial", 20)).pack(pady=(20, 20))
+        tk.Label(self.root, text="This tool allows you to cluster images into groups based on their descriptions.", font=("Arial", 14)).pack(pady=(0,20))
+        # tk.Label(self.root, text="Once the clusters have been generated, the user can review them to make adjustments.", font=("Arial", 11)).pack(pady=(0,3))
+        # tk.Label(self.root, text="The adjustments are made by removing or altering the top k words representing each cluster.", font=("Arial", 11)).pack(pady=(0,3))
+        # tk.Label(self.root, text="This process allows the user to refine the clusters to their liking.", font=("Arial", 11)).pack(pady=(0,15))
+        # tk.Label(self.root, text="NOTE: The top k words stem from the image descriptions.", font=("Arial", 10)).pack(pady=(0,20))
 
         tk.Button(self.root, text="Next", command=self.show_instructions_2).pack(pady=(0,20))
 
     def show_instructions_2(self):
         for widget in self.root.winfo_children():
             widget.destroy()
-        tk.Label(self.root, text="Welcome to the Visual Clustering Tool!", font=("Arial", 16)).pack(pady=(20, 20))
-        tk.Label(self.root, text="By starting the tool, the user will be guided through the following steps:", font=("Arial", 11)).pack(pady=(0,10))
+        tk.Label(self.root, text="Welcome to the Visual Clustering Tool!", font=("Arial", 20)).pack(pady=(20, 20))
+        tk.Label(self.root, text="By starting the tool, you will be guided through the following steps:", font=("Arial", 14)).pack(pady=(0,10))
         instructions = [ 
             "1. Select a CSV file containing the image descriptions and image paths.", 
-            "2. Optionally set the clustering parameters, or continue with the default settings.", 
+            "2. Optionally select parameters settings, or continue with the default settings.", 
             "3. Run the clustering algorithm to generate groups of similar images.", 
             "4. Inspect a selection of the images and the top words representing each cluster.", 
             "5. Adjust the top words used to represent the clusters if necessary.", 
             "6. Repeat steps 3-5 until the clusters are satisfactory." ]
         for instruction in instructions:
-            tk.Label(self.root, text=instruction, font=("Arial", 11)).pack(padx=50, pady=(0, 3))
+            tk.Label(self.root, text=instruction, font=("Arial", 12)).pack(padx=50, pady=(0, 3))
         tk.Button(self.root, text="Start", command=self.show_file_selection).pack(pady=(17,20))
 
     def show_file_selection(self):
         for widget in self.root.winfo_children():
             widget.destroy()
 
-        tk.Label(self.root, text="File Selection.", font=("Arial", 14)).pack(pady=(20,20))
-        tk.Label(self.root, text="Select a CSV file containing the image descriptions to cluster.", font=("Arial", 11)).pack(pady=(0,15))
-        tk.Label(self.root, text="NOTE: The CSV file should contain the image descriptions and corresponding image paths.", font=("Arial", 10)).pack(pady=(0,3))
-        tk.Label(self.root, text="NOTE: Make sure the images and corresponding description CSV files are saved in the same directory.", font=("Arial", 10)).pack(pady=(0,20))
+        tk.Label(self.root, text="Step 1. File Selection", font=("Arial", 14)).pack(pady=(10,10))
+        tk.Label(self.root, text="[Select a CSV file containing the image descriptions to cluster]", font=("Arial", 12)).pack(pady=(0,15))
 
         tk.Button(self.root, text="Select File", command=self.import_file).pack(pady=(0,10))
+        tk.Label(self.root, text="NOTE: The CSV file should contain the image descriptions and the corresponding image paths.", font=("Arial", 10)).pack(pady=(0,5))
+        tk.Label(self.root, text="NOTE: Make sure the images and corresponding description CSV files are saved in the current directory.", font=("Arial", 10)).pack(pady=(0,10))
 
-        self.file_label = tk.Label(self.root,text="No file selected")
+        self.file_label = tk.Label(self.root,text="No file selected", font=("Arial", 11))
         self.file_label.pack(pady=(0,20))
 
         self.next_button = tk.Button(self.root, text="Next", command=self.argument_setting, state="disabled")
@@ -77,8 +77,9 @@ class ClusteringGUI:
         for widget in self.root.winfo_children():
             widget.destroy()
 
-        tk.Label(self.root, text="Set clustering variables.", font=("Arial", 14)).pack(pady=(20, 15))
-        tk.Label(self.root, text="If no changes are made, the default values will be used.", font=("Arial", 11)).pack(pady=(0, 15))
+        tk.Label(self.root, text="Step 2. Parameter Setting", font=("Arial", 14)).pack(pady=(10, 10))
+        tk.Label(self.root, text="[Set the parameters used during clustering]", font=("Arial", 12)).pack(pady=(0,10))
+        tk.Label(self.root, text="NOTE: If no changes are made, the default values will be used.", font=("Arial", 10)).pack(pady=(0, 10))
 
         self.arguments = create_argument_settings(self.root)
 
@@ -154,12 +155,9 @@ class ClusteringGUI:
         return True, None
 
     def done(self):
-        tk.Label(self.root, text="Clustering process is completed.", font=("Arial", 14)).pack(pady=(20, 15))
-        tk.Label(self.root, text=f"All results are stored in the {self.output_dir} directory.", font=("Arial", 11)).pack(pady=(0, 15))
-        tk.Label(self.root, text=f"The window can now be closed.", font=("Arial", 11)).pack(pady=(0, 15))
-        pass
-
-
+        tk.Label(self.root, text="Clustering process is completed.", font=("Arial", 20)).pack(pady=(20, 20))
+        tk.Label(self.root, text=f"All results are stored in the {self.output_dir} directory.", font=("Arial", 14)).pack(pady=(0, 10))
+        tk.Label(self.root, text=f"The window can now be closed.", font=("Arial", 14)).pack(pady=(0, 10))
 
 
 root = tk.Tk()

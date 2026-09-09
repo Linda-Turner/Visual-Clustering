@@ -3,9 +3,11 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import simpledialog
 import threading
+from PIL import Image, ImageTk
 
 from scripts.clustering.main import cluster 
-from scripts.clustering.clustering_summary.clustering_terms import update_clustering_terms
+from scripts.clustering.clustering_summary.cluster_terms_update import update_clustering_terms
+from scripts.clustering.clustering_summary.clustering_images import get_image
 
 class ClusterView:
     """
@@ -32,76 +34,125 @@ class ClusterView:
 
     # Main frame functions
     def create_cluster_view(self):
-        tk.Label(self.frame, text="Visual Clustering", font=("Arial", 16)).pack(pady=(20, 20))
+        self.step_label = tk.Label(self.frame, text="Step 3. Clustering", font=("Arial", 14))
+        self.step_label.pack(pady=(10, 10))
 
+        self.action_label_frame = tk.Frame(self.frame)
+        self.action_label_frame.pack(pady=(0,10))
+        self.action_label = tk.Label(self.action_label_frame, text=f"[Press the 'Start Clustering' button to start the clustering]", font=("Arial", 12))
+        self.action_label.pack(pady=(0, 10))
+        button_frame = tk.Frame(self.action_label_frame)
+        button_frame.pack(pady=(0, 0))
+        self.run_button = tk.Button(button_frame,text="Start Clustering",command=self.run_clustering_round)
+        self.run_button.pack(side="left", padx=5)
+        self.review_cluster = tk.Button(button_frame,text="Review Clusters",command=self.review_instructions)
+        self.review_cluster.pack(side="left", padx=5)
+        self.review_cluster.config(state="disabled")
+
+        self.create_clustering_frame()
+        self.create_adjustment_explanation_frame()
+        self.create_adjustment_frame()
+
+    def create_clustering_frame(self):
         self.clustering_frame = tk.Frame(self.frame)
         self.clustering_frame.pack(fill="both", expand=True)
 
-        self.action_label_frame = tk.Frame(self.clustering_frame)
-        self.action_label_frame.pack(pady=10)
-        self.action_label = tk.Label(self.action_label_frame, text=f"Press the 'Start Clustering' button to start the clustering", font=("Arial", 14))
-        self.action_label.pack(pady=(0, 20))
+        self.progress_top_space = tk.Frame(self.clustering_frame)
+        self.progress_top_space.pack(fill="both", expand=True)
 
         self.clustering_progress_frame = tk.Frame(self.clustering_frame)
         self.clustering_progress_frame.pack(fill="both", expand=True)
-
-        tk.Label(self.clustering_progress_frame, text="Progress status:", font=("Arial", 14)).pack(pady=(0, 10))
-        self.status_label = tk.Label(self.clustering_progress_frame, text=f"", font=("Arial", 12))
-        self.step_status_label = tk.Label(self.clustering_progress_frame, text=f"", font=("Arial", 10))
+        self.progress_label = tk.Label(self.clustering_progress_frame, text="Progress status:", font=("Arial", 12))
+        self.status_label = tk.Label(self.clustering_progress_frame, text="", font=("Arial", 12))
+        self.step_status_label = tk.Label(self.clustering_progress_frame, text="", font=("Arial", 11))
         self.progress_bar_status = tk.Label(self.clustering_progress_frame, text="", font=("Arial", 10))
-        self.progress_bar = ttk.Progressbar(self.clustering_progress_frame,orient="horizontal",length=400,mode="indeterminate")
+        self.progress_bar = ttk.Progressbar(self.clustering_progress_frame,orient="horizontal",length=400,mode="determinate")
 
-        self.button_frame = tk.Frame(self.clustering_frame)
-        self.button_frame.pack(pady=10)
-        self.run_button = tk.Button(self.button_frame,text="Start Clustering",command=self.run_clustering_round)
-        self.run_button.pack(side="left", padx=5)
-        self.review_cluster = tk.Button(self.button_frame,text="Review Clusters",command=self.review_clustering)
-        self.review_cluster.pack(side="left", padx=5)
-        self.review_cluster.config(state="disabled")
+        self.progress_bottom_space = tk.Frame(self.clustering_frame)
+        self.progress_bottom_space.pack(fill="both", expand=True)
+
+        self.finish_button_frame = tk.Frame(self.clustering_frame)
+        self.finish_button_frame.pack(side="bottom", pady=10)
         self.finish_button = tk.Button(self.clustering_frame,text="Finish Clusterings",command=self.finish_clustering)
-        self.finish_button.pack(pady=(0,10))
+        self.finish_button.pack(pady=(0,20))
 
-        self.results_frame = tk.Frame(self.frame)
+    def create_adjustment_explanation_frame(self):
+        self.explanation_container = tk.Frame(self.frame)
+        tk.Label(self.explanation_container, text="How to adjust the clusters", font=("Arial", 13, "bold")).pack(pady=(0, 8))
+        tk.Label(self.explanation_container, text=(
+                "In the adjustment step you will see a selection of images representing the cluster "
+                "together with the most important terms found in their descriptions. "), font=("Arial", 11), wraplength=700, justify="center").pack(pady=(0, 8))
+        tk.Label(self.explanation_container, text=(
+                "The clustering is based on the descriptions, so by altering the descriptions, different clusters can be made. "
+                "There are two options to adjust the image descriptions."), font=("Arial", 11), wraplength=700, justify="center").pack(pady=(0, 10))
+        tk.Label(self.explanation_container, text="• Delete a term", font=("Arial", 11, "bold")).pack()
+        tk.Label(self.explanation_container, text=(
+                "Click on a term to remove it from the descriptions. "
+                "This is useful when a term is irrelevant or should not be used to base the clustering decision on."), font=("Arial", 11), wraplength=700, justify="center").pack(pady=(0, 8))
+        tk.Label(self.explanation_container, text="• Merge terms", font=("Arial", 11, "bold")).pack()
+        tk.Label(self.explanation_container,text=(
+                "Drag one term on top of another term to merge them. "
+                "You will be asked to provide a new, more informative term. "
+                "The original terms in the descriptions will then be replaced by the new term "
+                "in the descriptions."),font=("Arial", 11), wraplength=700, justify="center").pack(pady=(0, 8))
+        tk.Label(self.explanation_container,text=(
+                "Use these adjustments to make the cluster descriptions more "
+                "meaningful and better represent the images in the cluster."),font=("Arial", 11),wraplength=700,justify="center").pack()
+        tk.Button(self.explanation_container, text="Adjust Clusters", command=self.review_clustering)
+
+
+    def create_adjustment_frame(self):
+        self.results_container = tk.Frame(self.frame)
+        self.metainfo_label = tk.Frame(self.results_container)
+        self.metainfo_label.pack(side="top", fill="x", pady=(10,5))
+        self.scrollable_frame = tk.Frame(self.results_container)
+        self.scrollable_frame.pack(side="top", fill="both", expand=True)
+        self.results_canvas = tk.Canvas(self.scrollable_frame)
+        self.results_canvas.pack(side="left", fill="both", expand=True)
+        self.results_scrollbar = tk.Scrollbar(self.results_container,orient="vertical",command=self.results_canvas.yview)
+        self.results_scrollbar.pack(side="right", fill="y")
+        self.results_canvas.configure(yscrollcommand=self.results_scrollbar.set)
+        self.results_frame = tk.Frame(self.results_canvas)
+        self.results_canvas_window = self.results_canvas.create_window((0, 0), window=self.results_frame, anchor="nw")
+        self.results_frame.bind("<Configure>",lambda e: self.results_canvas.configure(scrollregion=self.results_canvas.bbox("all")))
+        self.results_canvas.bind("<Configure>",lambda e: self.results_canvas.itemconfig(self.results_canvas_window,width=e.width))
+        self.results_canvas.bind_all("<MouseWheel>",lambda e: self.results_canvas.yview_scroll(int(-1 * (e.delta / 120)),"units"))
+        self.navigation_frame = tk.Frame(self.results_container,height=80)
+        self.navigation_frame.pack(side="bottom",fill="x",pady=(10,5))
 
     def update_cluster_view(self, number_updated_ids):
         """
         Update the cluster view for a new round of clustering.
         """
-        # self.status_label.pack_forget()
         self.step_status_label.pack_forget()
         self.progress_bar_status.pack_forget()
-        if self.indeterminate_running:
-            self.progress_bar.stop()
-            self.indeterminate_running = False
         self.progress_bar.pack_forget()
 
-        self.action_label.config(text=f"Press 'Start Clustering' to restart the clustering or 'Finish Clusterings' to end the clustering process.")
-        self.action_label.pack(pady=(0, 20))
+        self.step_label.config(text="Step 3. Clustering")
+        self.action_label.config(text=f"[Press 'Start Clustering' to restart the clustering or 'Finish Clusterings' to end the clustering process.]")
+        self.action_label.pack(pady=(0, 10))
         self.run_button.config(state="normal")
         self.finish_button.config(state='normal')
 
         self.status_label.config(
-                 text=f"Manual adjustment of clustering results for round {self.round} finished! \n The clustering results have been stored and your adjustments have been saved. \n {str(number_updated_ids)} sentences have been changed.")
+                 text=f"Manual adjustment of clustering results for round {self.round} finished! \n The clustering results have been stored and your adjustments have been saved in {self.round_output_dir}. \n {str(number_updated_ids)} sentences have been changed.")
 
         self.previous_output_dir = self.round_output_dir
         self.round += 1
-        print(self.round, self.previous_output_dir, self.input_file)
 
 
     # Perform the clustering 
     def run_clustering_round(self):
-        for widget in self.results_frame.winfo_children():
-            widget.destroy()
-        self.action_label.config(text=f"Currently no action needed.")
+        self.action_label.config(text=f"[Currently no action needed]")
+        self.progress_label.pack(pady=(0,10))
         self.status_label.config(text=f"Round {self.round} clustering in progress...")
-        self.status_label.pack(pady=(0, 10))
+        self.status_label.pack(pady=(0, 20))
         self.step_status_label.config(text=f"")
         self.step_status_label.pack(pady=(0, 10))
         self.progress_bar_status.pack(pady=(0,5))
-        self.progress_bar.pack(pady=(0, 20))
+        self.progress_bar.pack(pady=(0, 10))
         self.run_button.config(state="disabled")
         self.finish_button.config(state="disabled")
-        # Main clustering function
         self.round_output_dir = os.path.join(self.output_dir, f"round_{self.round}")
         if not os.path.exists(self.round_output_dir):
             os.makedirs(self.round_output_dir)
@@ -122,22 +173,35 @@ class ClusterView:
         self.status_label.config(text="Clustering finished!")
         self.step_status_label.pack_forget()
         self.progress_bar_status.pack_forget()
-        if self.indeterminate_running:
-            self.progress_bar.stop()
-            self.indeterminate_running = False
         self.progress_bar.pack_forget()
-        self.action_label.config(text="Press 'Review Clusters' to manually inspect and alter the clusters.")
-        self.action_label_frame.pack(pady=(20, 0),before=self.clustering_progress_frame)
-        # self.run_button.config(state="normal")
-        # self.finish_button.config(state="normal")
+        self.action_label.config(text="[Press 'Review Clusters' to manually inspect and alter the clusters]")
+        self.finish_button.config(state="normal")
         self.review_cluster.config(state="normal")
 
 
     # Show the clustering results
+    def review_instructions(self):
+        print(self.round)
+        if self.round == 0:
+            self.finish_button.config(state="disabled")
+            self.review_cluster.config(state="disabled")
+            self.finish_button.config(state="disabled")
+            self.clustering_frame.pack_forget()
+            self.explanation_container.pack(fill="both", expand=True)
+            self.step_label.config(text="Step 4. Cluster Reviewing")
+            self.action_label.config(text="[Press 'next' when you have understood the explanation]")
+        else: 
+            self.finish_button.config(state="disabled")
+            self.review_cluster.config(state="disabled")
+            self.finish_button.config(state="disabled")
+            self.clustering_frame.pack_forget()
+            self.step_label.config(text="Step 4. Cluster Reviewing")
+            self.action_label.config(text="[Press 'next' when you have understood the explanation]")
+            self.review_clustering()
+
     def review_clustering(self):
-        # Show clustering results
-        self.clustering_frame.pack_forget()
-        self.results_frame.pack(fill="both", expand=True)
+        self.explanation_container.pack_forget()
+        self.results_container.pack(fill="both", expand=True)
         self.load_clustering_result('REPLACE')
         if self.clusters:
             self.show_current_cluster()
@@ -154,38 +218,57 @@ class ClusterView:
                 'silhouette' : row['Sil'],
                 'size' : row['Size'],
                 'terms': [{"term": row[f'Term {i}'],"selected": False,"x": None,"y": None,"merged_terms": None} for i in range(5)], 
+                'images' : row['Images'].split('|'),
                 'merge_history' : []}
                 self.clusters.append(cluster)
         self.current_cluster = 0
 
     def show_current_cluster(self):
         cluster = self.clusters[self.current_cluster]
-
+        self.results_canvas.yview_moveto(0)
         self.show_cluster(
             cluster["cluster_id"],
             cluster["silhouette"],
             cluster["size"],
-            cluster["terms"]
+            cluster["terms"], 
+            cluster['images']
         )
 
-    def show_cluster(self, cluster_id, silhouette, size, terms):
+
+    def show_cluster(self, cluster_id, silhouette, size, terms, images):
         """
         Display the cluster information and terms in the results_frame
         """
         for widget in self.results_frame.winfo_children():
             widget.destroy()
-        tk.Label(self.results_frame, text="Alter cluster terms", font=("Arial", 14)).pack(pady=(20,20))
-        tk.Label(self.results_frame, text=f"Results for clustering round {self.round} : Cluster {self.current_cluster + 1} of {len(self.clusters)}", font=("Arial", 11)).pack(pady=(0,3))
-        tk.Label(self.results_frame,text=(f"Silhouette Score: {silhouette}  Cluster Size: {size}"), font=("Arial", 10)).pack(pady=(0, 20))
+        for widget in self.metainfo_label.winfo_children():
+            widget.destroy()
+        for widget in self.navigation_frame.winfo_children():
+            widget.destroy()
+        tk.Label(self.metainfo_label, text=f"Results for clustering round {self.round}", font=("Arial", 11)).pack(pady=(0,2))
+        tk.Label(self.metainfo_label,text=(f"Cluster {self.current_cluster + 1} of {len(self.clusters)}: Silhouette Score: {silhouette}, Cluster Size: {size}"), font=("Arial", 11)).pack(pady=(0, 5))
+        content_frame = tk.Frame(self.results_frame)
+        content_frame.pack(pady=(0, 0))
+        
+        image_frame = tk.Frame(content_frame)
+        image_frame.pack(side="left", padx=(10, 15), anchor="n")
+        # image_path = os.path.join(self.round_output_dir,'collage_images',str(cluster_id) + '.jpg')
+        image_path = get_image(self.round_output_dir, images)
+        image = Image.open(image_path)
+        image.thumbnail((1000, 800))
+        self.cluster_image = ImageTk.PhotoImage(image)
+        self.cluster_collage_image = tk.Label(image_frame,image=self.cluster_image)
+        self.cluster_collage_image.pack(pady=(0, 10))
+        self.shuffle_button = tk.Button(image_frame, text="Show different pictures", command=lambda: self.shuffle_images(images))
+        self.shuffle_button.pack(pady=(0, 10))
 
-        # TODO: Display images
-
-        tk.Label(self.results_frame, text="Top terms:", font=("Arial", 11)).pack(pady=(0, 5))
-
-        self.term_canvas = tk.Canvas(self.results_frame,width=600,height=50,highlightthickness=1,highlightbackground="black")
-        self.term_canvas.pack(pady=(0, 20))
-        self.undo_button = tk.Button(self.results_frame, text="Undo last merge", command=self.undo_merge)
-        self.undo_button.pack(pady=5)
+        terms_frame = tk.Frame(content_frame)
+        terms_frame.pack(side="left", padx=(15, 10), anchor="n")
+        tk.Label(terms_frame, text="Top terms:", font=("Arial", 10)).pack(pady=(0, 5))
+        self.term_canvas = tk.Canvas(terms_frame,width=100,height=300,highlightthickness=1,highlightbackground="black")
+        self.term_canvas.pack(pady=(0, 10))
+        self.undo_button = tk.Button(terms_frame, text="Undo last merge", command=self.undo_merge)
+        self.undo_button.pack(pady=(0, 10))
 
         self.term_buttons = []
         for i, term_dict in enumerate(terms): 
@@ -195,11 +278,10 @@ class ClusterView:
                 font=("Arial", 10, "overstrike")
             else:  
                 font=("Arial", 10)
-            button = tk.Button(self.term_canvas, text=term, font=font, relief="flat", bd=0, highlightthickness=0, padx=10, pady=5)
-            # Set the button position within the term_canvas
+            button = tk.Button(self.term_canvas, text=term, font=font, relief="flat", bd=0, highlightthickness=0, padx=8, pady=3)
             if term_dict["x"] is None:
-                x = 60 + i * 120
-                y = 25
+                x = 50
+                y = 20 + i * 60
             else:
                 x = term_dict["x"]
                 y = term_dict["y"]
@@ -212,17 +294,17 @@ class ClusterView:
             self.term_buttons.append(button)
 
         # Buttons to navigate between clusters
-        navigation_frame = tk.Frame(self.results_frame)
-        navigation_frame.pack(pady=(20, 20))
+        navigation_buttons_frame = tk.Frame(self.navigation_frame)
+        navigation_buttons_frame.pack(anchor='center')
         if self.current_cluster != 0:
-            tk.Button(navigation_frame, text="First Cluster", command=lambda: self.previous_cluster(first_cluster=True)).pack(side="left", padx=10)
+            tk.Button(navigation_buttons_frame, text="First Cluster", command=lambda: self.previous_cluster(first_cluster=True)).pack(side="left", padx=5)
         if self.current_cluster > 0:
-            tk.Button(navigation_frame, text="Previous Cluster", command=self.previous_cluster).pack(side="left", padx=10)
+            tk.Button(navigation_buttons_frame, text="Previous Cluster", command=self.previous_cluster).pack(side="left", padx=5)
         if self.current_cluster < len(self.clusters) - 1:
-            tk.Button( navigation_frame, text="Next Cluster", command=self.next_cluster).pack(side="left", padx=10)
+            tk.Button(navigation_buttons_frame, text="Next Cluster", command=self.next_cluster).pack(side="left", padx=5)
         if self.current_cluster != len(self.clusters) - 1:
-            tk.Button(navigation_frame, text="Last Cluster", command=lambda: self.next_cluster(last_cluster=True)).pack(side="left", padx=10)
-        tk.Button(self.results_frame, text="Finish Adjustments", command=self.finish_manual_updates).pack(pady=10)
+            tk.Button(navigation_buttons_frame, text="Last Cluster", command=lambda: self.next_cluster(last_cluster=True)).pack(side="left", padx=5)
+        tk.Button(self.navigation_frame, text="Finish Adjustments", command=self.finish_manual_updates).pack(anchor='center', pady=(5,0))
 
 
     # Functions for moving terms around the canvas and merging them
@@ -335,6 +417,16 @@ class ClusterView:
             self.term_buttons.append(button)
 
 
+    # Function to show new image
+    def shuffle_images(self, images):
+        # image_path = os.path.join(self.round_output_dir,'collage_images',str(cluster_id) + '.jpg')
+        image_path = get_image(self.round_output_dir, images)
+        image = Image.open(image_path)
+        image.thumbnail((1000, 800))
+        self.cluster_image = ImageTk.PhotoImage(image)
+        self.cluster_collage_image.config(image=self.cluster_image)
+
+
     # Function for the removal of terms from the cluster view
     def toggle_term(self, button): 
         """ Toggle a strike-through effect on a term.""" 
@@ -362,7 +454,6 @@ class ClusterView:
     # Helper functions for navigating between clusters
     def next_cluster(self, last_cluster=False):
         self.save_current_terms()
-        # print(self.clusters[self.current_cluster]["terms"])
         if last_cluster:
             self.current_cluster = len(self.clusters) - 1
         elif self.current_cluster < len(self.clusters) - 1:
@@ -384,11 +475,11 @@ class ClusterView:
         Write the updated cluster terms to a CSV file and update the clusters data structure.
         """
         self.save_current_terms()
-        self.results_frame.pack_forget()
+        self.results_container.pack_forget()
         self.clustering_frame.pack(fill="both", expand=True)
-        self.action_label.config(text=f"Currently no action needed.")
+        self.action_label.config(text=f"[Currently no action needed]")
         self.status_label.config(text=f"Updating image decriptions in progress...")
-        self.status_label.pack(pady=(0,10))
+        self.status_label.pack(pady=(0,20))
         self.step_status_label.pack_forget()
         self.progress_bar_status.pack(pady=(0,5))
         self.progress_bar.pack(pady=(0, 20))
@@ -427,18 +518,30 @@ class ClusterView:
 
     # Updates
     def update_progress(self, current, total, message):
+        if not self.progress_bar_status.winfo_ismapped():
+            self.progress_bar_status.pack(pady=(0, 5))
         self.progress_bar_status.config(text=f"{message}: {current}/{total}")
+        if not self.progress_bar.winfo_ismapped():
+            self.progress_bar.pack(pady=(0, 20))
         if self.indeterminate_running:
             self.progress_bar.stop()
             self.indeterminate_running = False
         self.progress_bar.config(mode="determinate")
         self.progress_bar["maximum"] = total
         self.progress_bar["value"] = current
+        if current >= total:
+            self.progress_bar_status.pack_forget()
+            self.progress_bar.pack_forget()
 
     def update_indeterminate(self, message):
+        if not self.progress_bar_status.winfo_ismapped():
+            self.progress_bar_status.pack(pady=(0, 5))
         self.progress_bar_status.config(text=message)
+        if not self.progress_bar.winfo_ismapped():
+            self.progress_bar.pack(pady=(0, 20))
         if not self.indeterminate_running:
-            self.progress_bar.config(mode="indeterminate")
+            self.progress_bar.config(mode="indeterminate",maximum=100)
+            self.progress_bar["maximum"] = 100
             self.progress_bar.start(10)
             self.indeterminate_running = True
 
