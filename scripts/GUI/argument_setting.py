@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 
 
-def create_argument_settings(parent):
+def create_argument_settings(parent, arguments):
     columns_frame = tk.Frame(parent)
     columns_frame.pack(fill="both", expand=True, padx=20)
 
@@ -42,14 +42,12 @@ def create_argument_settings(parent):
             credentials_label.config(text="OpenAI credentials file")
         else:
             credentials.config(state="disabled")
-            # credentials_label.config(text="No credentials file needed")
             credentials_label.config(text="Not needed with bert or tfidf")
         if embedding_model.get() == 'tfidf':
             topk.config(state='normal')
             topk_label.config(text="Number of top terms")
         else:
             topk.config(state='disabled')
-            # topk_label.config(text="No number of top terms needed")
             topk_label.config(text="not needed with bert or openai")
     embedding_model.bind("<<ComboboxSelected>>", update_embedding_options)
     update_embedding_options()
@@ -95,7 +93,6 @@ def create_argument_settings(parent):
     def update_reduction_options(event=None):
         if reduction_model.get() == "pca":
             neighbors.config(state="disabled")
-            # neighbors_label.config(text="No number of neighbors needed")
             neighbors_label.config(text="Not needed with pca")
         else:
             neighbors.config(state="normal")
@@ -144,15 +141,12 @@ def create_argument_settings(parent):
             cluster_metric.config(state='disabled')
             num_clusters.config(state="normal")
             num_clust_label.config(text="Minimum number of clusters")
-            # clust_size_label.config(text="No minimum cluster size needed")
-            # cluster_metric_label.config(text="No cluster metric needed")
             clust_size_label.config(text="Not needed with kmeans")
             cluster_metric_label.config(text="Not needed with kmeans")
         elif cluster_method.get() == "hdbscan":
             min_cluster_size.config(state="normal")
             cluster_metric.config(state='normal')
             num_clusters.config(state="disabled")
-            # num_clust_label.config(text="No minimum number of clusters needed")
             num_clust_label.config(text="Not needed with hdbscan")
             clust_size_label.config(text="Minimum cluster size")
             cluster_metric_label.config(text="Cluster metric")
@@ -174,5 +168,18 @@ def create_argument_settings(parent):
         "components": components,
         "neighbors": neighbors,
     }
+    if arguments is not None:
+        for key, value in arguments.items():
+            widget = argument_widgets[key]
+            value = str(value)
+            if isinstance(widget, ttk.Combobox):
+                widget.set(value)
+            else:
+                widget.config(state="normal")
+                widget.delete(0, tk.END)
+                widget.insert(0, value)
+        update_embedding_options()
+        update_reduction_options()
+        update_clustering_options()
     return argument_widgets
 

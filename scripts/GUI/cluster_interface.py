@@ -1,13 +1,12 @@
-import csv, os
-import tkinter as tk
-from tkinter import ttk
-from tkinter import simpledialog
+import csv, os, ast
+import tkinter as tk 
+from tkinter import messagebox, ttk, simpledialog
 import threading
 from PIL import Image, ImageTk
 
-from scripts.clustering.main import cluster 
-from scripts.clustering.clustering_summary.cluster_terms_update import update_clustering_terms
-from scripts.clustering.clustering_summary.clustering_images import get_image
+from scripts.clustering.orchestrator import orchestrate_clustering 
+from scripts.clustering.clustering_description.cluster_updates import update_clustering_terms
+from scripts.clustering.clustering_description.cluster_images import get_image
 
 class ClusterView:
     """
@@ -17,19 +16,21 @@ class ClusterView:
     def __init__(self, parent, previous, input_file, output_dir, round, arguments):
         self.parent = parent
         self.previous = previous
+        self.indeterminate_running= False
+
         self.input_file = input_file
         self.output_dir = output_dir
         self.previous_output_dir = None
-        # self.previous_output_dir = os.path.join('results','round_0')
-        self.round = round
+
         self.clusters = []
         self.current_cluster = 0
+        self.round = round
+
+        self.num_keys = 7
         self.arguments = arguments
-        self.indeterminate_running= False
 
         self.frame = tk.Frame(parent)
         self.frame.pack(fill="both", expand=True)
-
         self.create_cluster_view()
 
     # Main frame functions
@@ -73,15 +74,15 @@ class ClusterView:
 
         self.finish_button_frame = tk.Frame(self.clustering_frame)
         self.finish_button_frame.pack(side="bottom", pady=10)
-        self.finish_button = tk.Button(self.clustering_frame,text="Finish Clusterings",command=self.finish_clustering)
+        self.finish_button = tk.Button(self.clustering_frame,text="End Clustering Tool",command=self.finish_clustering)
         self.finish_button.pack(pady=(0,20))
 
     def create_adjustment_explanation_frame(self):
         self.explanation_container = tk.Frame(self.frame)
         tk.Label(self.explanation_container, text="How to adjust the clusters", font=("Arial", 13, "bold")).pack(pady=(0, 8))
         tk.Label(self.explanation_container, text=(
-                "In the adjustment step you will see a selection of images representing the cluster "
-                "together with the most important terms found in their descriptions. "), font=("Arial", 11), wraplength=700, justify="center").pack(pady=(0, 8))
+                "In the coming adjustment step you will see a selection of images representing the cluster"
+                "together with the top k most important terms found in their image descriptions."), font=("Arial", 11), wraplength=700, justify="center").pack(pady=(0, 8))
         tk.Label(self.explanation_container, text=(
                 "The clustering is based on the descriptions, so by altering the descriptions, different clusters can be made. "
                 "There are two options to adjust the image descriptions."), font=("Arial", 11), wraplength=700, justify="center").pack(pady=(0, 10))
@@ -93,12 +94,11 @@ class ClusterView:
         tk.Label(self.explanation_container,text=(
                 "Drag one term on top of another term to merge them. "
                 "You will be asked to provide a new, more informative term. "
-                "The original terms in the descriptions will then be replaced by the new term "
-                "in the descriptions."),font=("Arial", 11), wraplength=700, justify="center").pack(pady=(0, 8))
+                "The original terms in the descriptions will then be replaced by the new term in the descriptions."),font=("Arial", 11), wraplength=700, justify="center").pack(pady=(0, 8))
         tk.Label(self.explanation_container,text=(
                 "Use these adjustments to make the cluster descriptions more "
                 "meaningful and better represent the images in the cluster."),font=("Arial", 11),wraplength=700,justify="center").pack()
-        tk.Button(self.explanation_container, text="Adjust Clusters", command=self.review_clustering)
+        tk.Button(self.explanation_container, text="Adjust Clusters", command=self.review_clustering).pack()
 
 
     def create_adjustment_frame(self):
@@ -165,10 +165,14 @@ class ClusterView:
             self.parent.after(0,self.update_indeterminate, message)
         def step_callback(step):
             self.parent.after(0,self.update_step,step)
-        cluster_terms_filepath, key_terms_filepath = cluster(self.input_file,self.round_output_dir,self.previous_output_dir,self.arguments,self.round,progress_callback,indeterminate_callback, step_callback)
-        self.parent.after(0,self.clustering_finished,cluster_terms_filepath,key_terms_filepath)
+        try:    
+            cluster_terms_filepath = orchestrate_clustering(self.input_file,self.round_output_dir,self.previous_output_dir,self.num_keys,self.arguments,self.round,progress_callback,indeterminate_callback, step_callback)
+            self.parent.after(0,self.clustering_finished,cluster_terms_filepath)
+        except Exception as e:
+            print(f"Clustering error: {e}")
+            self.parent.after(0,self.clustering_error,e)
 
-    def clustering_finished(self, cluster_terms_filepath, key_terms_filepath):
+    def clustering_finished(self, cluster_terms_filepath):
         self.cluster_terms_filepath = cluster_terms_filepath
         self.status_label.config(text="Clustering finished!")
         self.step_status_label.pack_forget()
@@ -202,11 +206,11 @@ class ClusterView:
     def review_clustering(self):
         self.explanation_container.pack_forget()
         self.results_container.pack(fill="both", expand=True)
-        self.load_clustering_result('REPLACE')
+        self.load_clustering_result()
         if self.clusters:
             self.show_current_cluster()
 
-    def load_clustering_result(self, key_terms_filepath):
+    def load_clustering_result(self):
         """
         Read the cluster terms from the CSV file and store them in self.clusters
         """
@@ -217,11 +221,13 @@ class ClusterView:
                 cluster  = {'cluster_id' : row['CID'],
                 'silhouette' : row['Sil'],
                 'size' : row['Size'],
-                'terms': [{"term": row[f'Term {i}'],"selected": False,"x": None,"y": None,"merged_terms": None} for i in range(5)], 
-                'images' : row['Images'].split('|'),
+                'terms': [{"term": row[f'Term {i}'],"selected": False,"x": None,"y": None,"merged_terms": None} for i in range(self.num_keys)], 
+                'images' : ast.literal_eval(row['Images']),
                 'merge_history' : []}
                 self.clusters.append(cluster)
         self.current_cluster = 0
+        self.round_collage_outdir = os.path.join(self.round_output_dir,"collages")
+        os.makedirs(self.round_collage_outdir, exist_ok=True)
 
     def show_current_cluster(self):
         cluster = self.clusters[self.current_cluster]
@@ -246,14 +252,18 @@ class ClusterView:
         for widget in self.navigation_frame.winfo_children():
             widget.destroy()
         tk.Label(self.metainfo_label, text=f"Results for clustering round {self.round}", font=("Arial", 11)).pack(pady=(0,2))
-        tk.Label(self.metainfo_label,text=(f"Cluster {self.current_cluster + 1} of {len(self.clusters)}: Silhouette Score: {silhouette}, Cluster Size: {size}"), font=("Arial", 11)).pack(pady=(0, 5))
+        tk.Label(self.metainfo_label,text=(f"Cluster {self.current_cluster + 1} of {len(self.clusters)}: Cluster ID: {cluster_id}, Silhouette Score: {silhouette}, Cluster Size: {size}"), font=("Arial", 11)).pack(pady=(0, 5))
         content_frame = tk.Frame(self.results_frame)
         content_frame.pack(pady=(0, 0))
         
         image_frame = tk.Frame(content_frame)
         image_frame.pack(side="left", padx=(10, 15), anchor="n")
-        # image_path = os.path.join(self.round_output_dir,'collage_images',str(cluster_id) + '.jpg')
-        image_path = get_image(self.round_output_dir, images)
+        file_path = os.path.join(self.round_collage_outdir, f'collage_{self.current_cluster}.jpg')
+
+        if os.path.exists(file_path):
+            image_path = file_path
+        else:
+            image_path = get_image(self.round_collage_outdir, images, self.current_cluster)
         image = Image.open(image_path)
         image.thumbnail((1000, 800))
         self.cluster_image = ImageTk.PhotoImage(image)
@@ -265,7 +275,7 @@ class ClusterView:
         terms_frame = tk.Frame(content_frame)
         terms_frame.pack(side="left", padx=(15, 10), anchor="n")
         tk.Label(terms_frame, text="Top terms:", font=("Arial", 10)).pack(pady=(0, 5))
-        self.term_canvas = tk.Canvas(terms_frame,width=100,height=300,highlightthickness=1,highlightbackground="black")
+        self.term_canvas = tk.Canvas(terms_frame,width=200,height=300,highlightthickness=1,highlightbackground="black")
         self.term_canvas.pack(pady=(0, 10))
         self.undo_button = tk.Button(terms_frame, text="Undo last merge", command=self.undo_merge)
         self.undo_button.pack(pady=(0, 10))
@@ -280,8 +290,8 @@ class ClusterView:
                 font=("Arial", 10)
             button = tk.Button(self.term_canvas, text=term, font=font, relief="flat", bd=0, highlightthickness=0, padx=8, pady=3)
             if term_dict["x"] is None:
-                x = 50
-                y = 20 + i * 60
+                x = 100
+                y = 21 + i * 42
             else:
                 x = term_dict["x"]
                 y = term_dict["y"]
@@ -419,8 +429,7 @@ class ClusterView:
 
     # Function to show new image
     def shuffle_images(self, images):
-        # image_path = os.path.join(self.round_output_dir,'collage_images',str(cluster_id) + '.jpg')
-        image_path = get_image(self.round_output_dir, images)
+        image_path = get_image(self.round_output_dir, images, self.current_cluster)
         image = Image.open(image_path)
         image.thumbnail((1000, 800))
         self.cluster_image = ImageTk.PhotoImage(image)
@@ -487,36 +496,39 @@ class ClusterView:
         self.finish_button.config(state="disabled")
         self.review_cluster.config(state="disabled")
         self.next_output_dir = os.path.join(self.output_dir, f"round_{self.round + 1}") # ID	Dir	ImageID	Labels
-        if self.round > 0:
-            cluster_updates = os.path.join(self.round_output_dir, "cluster_updates.csv")
-            os.makedirs(self.next_output_dir, exist_ok=True)
-            with open(cluster_updates, 'w', encoding='utf-8', newline='') as out:
-                out.write('cluster_id,term,delete,merged_terms\n')
-                for cluster in self.clusters:
-                    for term_dict in cluster["terms"]:
-                        term = term_dict["term"]
-                        delete = str(term_dict["selected"])
-                        merged_terms = term_dict["merged_terms"]
-                        if merged_terms:
-                            terms = "|".join(merged_terms)
-                        else:
-                            terms = ""
-                        out.write(f"{cluster['cluster_id']},{term},{delete},{terms}\n")
-            out.close()
+        cluster_updates = os.path.join(self.round_output_dir, "cluster_updates.csv")
+        os.makedirs(self.next_output_dir, exist_ok=True)
+        with open(cluster_updates, 'w', encoding='utf-8', newline='') as out:
+            out.write('cluster_id,term,delete,merged_terms\n')
+            for cluster in self.clusters:
+                for term_dict in cluster["terms"]:
+                    term = term_dict["term"]
+                    delete = str(term_dict["selected"])
+                    merged_terms = term_dict["merged_terms"]
+                    if merged_terms:
+                        terms = "|".join(merged_terms)
+                    else:
+                        terms = ""
+                    out.write(f"{cluster['cluster_id']},{term},{delete},{terms}\n")
+        out.close()
         threading.Thread(target=self.update_texts_background, args=(), daemon=True).start()
 
     def update_texts_background(self):
         def progress_callback(current, total, message):
             self.parent.after(0,self.update_progress,current,total,message)
-        updated_input_file, number_updated_ids = update_clustering_terms(self.input_file,self.next_output_dir,self.round_output_dir, progress_callback)
-        self.parent.after(0, self.update_texts_finished, updated_input_file, number_updated_ids)
+        try:    
+            updated_input_file, number_updated_ids = update_clustering_terms(self.input_file,self.next_output_dir,self.round_output_dir, progress_callback)
+            self.parent.after(0, self.update_texts_finished, updated_input_file, number_updated_ids)
+        except Exception as e:
+            print(f"Error: {e}")
+            self.parent.after(0,self.clustering_error,e)
 
     def update_texts_finished(self, updated_input_file, number_updated_ids):
         self.input_file = updated_input_file
         self.update_cluster_view(number_updated_ids)
 
 
-    # Updates
+    # Update progress steps
     def update_progress(self, current, total, message):
         if not self.progress_bar_status.winfo_ismapped():
             self.progress_bar_status.pack(pady=(0, 5))
@@ -556,3 +568,17 @@ class ClusterView:
         """
         self.frame.destroy()
         self.previous.done()
+
+
+    # Error messages
+    def clustering_error(self, error):
+        print(f"Error: {repr(error)}")
+        self.status_label.config(text="Clustering could not be completed.")
+        self.step_status_label.pack_forget()
+        if self.indeterminate_running:
+            self.progress_bar.stop()
+            self.indeterminate_running = False
+        self.progress_bar.pack_forget()
+        self.progress_bar_status.pack_forget()
+        self.action_label.config(text="[Error]")
+        messagebox.showerror("Error", error)

@@ -1,0 +1,15 @@
+{
+    "cluster_method": "hdbscan",
+    "cluster_metric": "euclidean",
+    "min_cluster_size": "50",
+    "num_clusters": "100",
+    "embedding_model": "bert",
+    "embedding_batch": "500",
+    "topk": "10",
+    "credentials": "openai_api.txt",
+    "reduction_batch": "100000",
+    "scaling": "normalize",
+    "reduction_model": "umap",
+    "components": "10",
+    "neighbors": "5"
+}
