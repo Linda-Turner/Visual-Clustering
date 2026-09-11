@@ -1,4 +1,5 @@
-results/
+clustering_results/
+clustering_results_ngram/
 data/
 
 cl-vis.png
