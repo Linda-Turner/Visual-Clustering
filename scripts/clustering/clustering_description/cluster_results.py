@@ -61,13 +61,34 @@ def store_clustering_results(
         doc.sort(key=lambda x: x[1], reverse=True)
         top_doc = doc[:num_keys]
         ngrams = [str(term).split() for term, _ in top_doc if len(str(term).split()) > 1]
+        # for term, _ in top_doc:
+        #     term = str(term)
+        #     if any(term in ngram for ngram in ngrams):
+        #         ngram_counter += 1
+        #         top_doc.append(doc[num_keys+ngram_counter])
+        #         continue
+        #     cluster_terms.append(term)
         cluster_terms = []
-        for term, _ in top_doc:
+        i = 0
+        while len(cluster_terms) < num_keys and i < len(doc):
+            term, _ = doc[i]
             term = str(term)
-            if any(term in ngram for ngram in ngrams):
-                cluster_terms.append("")
-                continue
+            if len(term.split()) == 1:
+                if any(term in ngram for ngram in ngrams):
+                    i += 1
+                    continue
+            if len(term.split()) > 1:
+                ngrams.append(str(term).split())
+                cluster_terms = [cluster_term for cluster_term in cluster_terms 
+                                 if not (cluster_term in term.split())]
+                # remove_terms = []
+                # for cluster_term in cluster_terms:
+                #     if any(cluster_term in ngram for ngram in ngrams):
+                #         remove_terms.append(cluster_term)
+                # for remove_term in remove_terms:
+                #     cluster_terms.remove(remove_term)
             cluster_terms.append(term)
+            i += 1
         text_summary[cluster_id] = ','.join(cluster_terms)
 
     print('Number of clusters: ' + str(len(topics)))

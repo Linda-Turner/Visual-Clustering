@@ -45,15 +45,16 @@ def orchestrate_clustering(input_file, round_output_dir,previous_output_dir, num
             method=cluster_method, metric=cluster_metric, 
             min_cluster_size=min_cluster_size, num_clusters=num_clusters,
             indeterminate_callback=indeterminate_callback)
-        cluster_filepath = os.path.join(round_output_dir, 'clusters.csv')
+    embedding_filepath = os.path.join(round_output_dir, 'embedding.csv')
+    cluster_filepath = os.path.join(round_output_dir, 'clusters.csv')
 
-            # Analyze
-        step_callback("Step 4/4: Cluster Analysis")
-        store_clustering_results(input_file=input_file, output_dir=round_output_dir,
-                            embedding_file=embedding_filepath, clusters_file=cluster_filepath,
-                            cluster_terms_file='cluster_terms.csv',
-                            num_keys=num_keys, 
-                            progress_callback=progress_callback, indeterminate_callback=indeterminate_callback)
+    # Analyze
+    step_callback("Step 4/4: Cluster Analysis")
+    store_clustering_results(input_file=input_file, output_dir=round_output_dir,
+                        embedding_file=embedding_filepath, clusters_file=cluster_filepath,
+                        cluster_terms_file='cluster_terms.csv',
+                        num_keys=num_keys, 
+                        progress_callback=progress_callback, indeterminate_callback=indeterminate_callback)
     cluster_terms_filepath = os.path.join(round_output_dir, 'cluster_terms.csv')
 
     return cluster_terms_filepath

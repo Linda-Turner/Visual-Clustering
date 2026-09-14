@@ -49,6 +49,7 @@ class ClusteringGUI:
     def select_cluster_round(self):
         for widget in self.root.winfo_children():
             widget.destroy()
+        self.continued_clustering = False
 
         tk.Label(self.root,text="Step 0. Start or Continue Clustering", font=("Arial", 14)).pack(pady=(10, 10))
         tk.Label(self.root, text="[Choose whether you would like to start a new clustering process or continue an existing one]", font=("Arial", 12), wraplength=700,justify="center").pack(pady=(0, 5))
