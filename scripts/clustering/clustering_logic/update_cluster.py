@@ -6,7 +6,7 @@ def update_clustering_terms(input_file, next_output_dir, round_output_dir, progr
     Update the terms for a specific cluster.
     """
     clusters = os.path.join(round_output_dir, "clusters.csv")  # ID, ClusterID
-    cluster_updates = os.path.join(round_output_dir, "cluster_updates.csv")  # cluster_id, term, delete, merged_terms
+    cluster_updates = os.path.join(round_output_dir, "cluster_updates.csv")  # cluster_id, term, delete, new_term
     updated_input_file = os.path.join(next_output_dir, "updated_input_file.csv")
     updated_ids_file = os.path.join(round_output_dir, "updated_ids.json")
     clusters_df = pd.read_csv(clusters)
@@ -41,15 +41,14 @@ def update_clustering_terms(input_file, next_output_dir, round_output_dir, progr
                         text=new_text
                         altered = True
                 # at cluster_id -> replace merged_terms with term
-                merges = text_updates[text_updates['delete'] == False][['term', 'merged_terms']].to_dict('records')
-                for merge in merges:
-                    merged_terms = merge['merged_terms'].split("|")
-                    if len(merged_terms) > 1:
-                        for merged_term in merged_terms:
-                            new_text = re.sub(re.escape(merged_term), merge["term"], text, flags=re.IGNORECASE)
-                            if new_text != text:
-                                text=new_text
-                                altered=True
+                updates = text_updates[text_updates['delete'] == False][['term', 'new_term']].to_dict('records')
+                for update in updates:
+                    new_term = update['new_term']
+                    if len(new_term) > 0:                
+                        new_text = re.sub(update["term"], re.escape(new_term), text, flags=re.IGNORECASE)
+                        if new_text != text:
+                            text=new_text
+                            altered=True
             if altered:
                 updated_ids += [id]
             out.write(id + '\t' + dir + '\t' + img + '\t' + text + '\n')

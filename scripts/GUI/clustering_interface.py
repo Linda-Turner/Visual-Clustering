@@ -1,12 +1,13 @@
 import csv, os, ast
+import pandas as pd
 import tkinter as tk 
 from tkinter import messagebox, ttk, simpledialog
 import threading
 from PIL import Image, ImageTk
 
 from scripts.clustering.orchestrator import orchestrate_clustering 
-from scripts.clustering.clustering_description.cluster_updates import update_clustering_terms
-from scripts.clustering.clustering_description.cluster_images import get_image
+from scripts.clustering.clustering_logic.update_cluster import update_clustering_terms
+from scripts.clustering.clustering_summary.cluster_images import get_image
 
 class ClusterView:
     """
@@ -214,34 +215,40 @@ class ClusterView:
         """
         Read the cluster terms from the CSV file and store them in self.clusters
         """
-        self.clusters = []
+        self.clusters = {}
         with open(self.cluster_terms_filepath, newline='', encoding="utf-8") as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
                 cluster  = {'cluster_id' : row['CID'],
                 'silhouette' : row['Sil'],
                 'size' : row['Size'],
-                'terms': [{"term": row[f'Term {i}'],"selected": False,"x": None,"y": None,"merged_terms": None} for i in range(self.num_keys)], 
-                'images' : ast.literal_eval(row['Images']),
-                'merge_history' : []}
-                self.clusters.append(cluster)
+                'terms': [{"term": row[f'Term {i}'], "selected": False, "x": None, "y": None, "original_term": row[f'Term {i}']} for i in range(self.num_keys)]}
+                self.clusters[row['CID']] = cluster
         self.current_cluster = 0
         self.round_collage_outdir = os.path.join(self.round_output_dir,"collages")
         os.makedirs(self.round_collage_outdir, exist_ok=True)
 
+        cluster_info_file = os.path.join(self.round_output_dir, "clusters_img_desc.csv")
+        self.cluster_img_desc = {}
+        with open(cluster_info_file, newline='', encoding="utf-8") as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                cluster_id = row['clusterId']
+                if cluster_id not in self.cluster_img_desc:
+                    self.cluster_img_desc[cluster_id] = []
+                self.cluster_img_desc[cluster_id].append((row['path'], row['text']))
+
     def show_current_cluster(self):
-        cluster = self.clusters[self.current_cluster]
+        cluster = self.clusters[str(self.current_cluster)]
         self.results_canvas.yview_moveto(0)
         self.show_cluster(
             cluster["cluster_id"],
             cluster["silhouette"],
             cluster["size"],
-            cluster["terms"], 
-            cluster['images']
+            cluster["terms"]
         )
 
-
-    def show_cluster(self, cluster_id, silhouette, size, terms, images):
+    def show_cluster(self, cluster_id, silhouette, size, terms):
         """
         Display the cluster information and terms in the results_frame
         """
@@ -255,30 +262,50 @@ class ClusterView:
         tk.Label(self.metainfo_label,text=(f"Cluster {self.current_cluster + 1} of {len(self.clusters)}: Cluster ID: {cluster_id}, Silhouette Score: {silhouette}, Cluster Size: {size}"), font=("Arial", 11)).pack(pady=(0, 5))
         content_frame = tk.Frame(self.results_frame)
         content_frame.pack(pady=(0, 0))
-        
+
+        self.create_image_frame(content_frame)
+        self.create_terms_frame(content_frame, terms)
+
+        # Buttons to navigate between clusters
+        navigation_buttons_frame = tk.Frame(self.navigation_frame)
+        navigation_buttons_frame.pack(anchor='center')
+        if self.current_cluster != 0:
+            tk.Button(navigation_buttons_frame, text="First Cluster", command=lambda: self.previous_cluster(first_cluster=True)).pack(side="left", padx=5)
+        if self.current_cluster > 0:
+            tk.Button(navigation_buttons_frame, text="Previous Cluster", command=self.previous_cluster).pack(side="left", padx=5)
+        if self.current_cluster < len(self.clusters) - 1:
+            tk.Button(navigation_buttons_frame, text="Next Cluster", command=self.next_cluster).pack(side="left", padx=5)
+        if self.current_cluster != len(self.clusters) - 1:
+            tk.Button(navigation_buttons_frame, text="Last Cluster", command=lambda: self.next_cluster(last_cluster=True)).pack(side="left", padx=5)
+        tk.Button(self.navigation_frame, text="Finish Adjustments", command=self.finish_manual_updates).pack(anchor='center', pady=(5,0))
+
+    def create_image_frame(self, content_frame):
         image_frame = tk.Frame(content_frame)
         image_frame.pack(side="left", padx=(10, 15), anchor="n")
-        file_path = os.path.join(self.round_collage_outdir, f'collage_{self.current_cluster}.jpg')
 
-        if os.path.exists(file_path):
-            image_path = file_path
+        file_path = os.path.join(self.round_collage_outdir, f'collage_{self.current_cluster}.jpg')
+        if os.path.exists(file_path): # Instantate with collage
+            self.current_image = file_path
         else:
-            image_path = get_image(self.round_collage_outdir, images, self.current_cluster)
-        image = Image.open(image_path)
+            self.current_image = get_image(self.cluster_img_desc, self.round_collage_outdir, self.current_cluster, True)
+        image = Image.open(self.current_image)
         image.thumbnail((1000, 800))
         self.cluster_image = ImageTk.PhotoImage(image)
         self.cluster_collage_image = tk.Label(image_frame,image=self.cluster_image)
         self.cluster_collage_image.pack(pady=(0, 10))
-        self.shuffle_button = tk.Button(image_frame, text="Show different pictures", command=lambda: self.shuffle_images(images))
-        self.shuffle_button.pack(pady=(0, 10))
+        image_frame_button_frame = tk.Frame(image_frame)
+        image_frame_button_frame.pack(padx=(0, 0))
+        self.shuffle_button = tk.Button(image_frame_button_frame, text="Show different images", command=self.shuffle_images)
+        self.shuffle_button.pack(side="left", padx=5)
+        self.change_img_type_button = tk.Button(image_frame_button_frame, text="Show image descriptions", command=self.change_image_type)
+        self.change_img_type_button.pack(side="left", padx=5)
 
+    def create_terms_frame(self, content_frame, terms):
         terms_frame = tk.Frame(content_frame)
         terms_frame.pack(side="left", padx=(15, 10), anchor="n")
         tk.Label(terms_frame, text="Top terms:", font=("Arial", 10)).pack(pady=(0, 5))
         self.term_canvas = tk.Canvas(terms_frame,width=200,height=300,highlightthickness=1,highlightbackground="black")
         self.term_canvas.pack(pady=(0, 10))
-        self.undo_button = tk.Button(terms_frame, text="Undo last merge", command=self.undo_merge)
-        self.undo_button.pack(pady=(0, 10))
 
         self.term_buttons = []
         for i, term_dict in enumerate(terms): 
@@ -295,169 +322,68 @@ class ClusterView:
             else:
                 x = term_dict["x"]
                 y = term_dict["y"]
-            button.merged_terms = term_dict.get("merged_terms")
+            button.original_term = term_dict["original_term"]
             window = self.term_canvas.create_window(x, y, window=button)
             button.canvas_id  = window
-            button.bind("<ButtonPress-1>", self.start_drag)
-            button.bind("<B1-Motion>", self.drag)
-            button.bind("<ButtonRelease-1>", self.end_drag)
-            self.term_buttons.append(button)
-
-        # Buttons to navigate between clusters
-        navigation_buttons_frame = tk.Frame(self.navigation_frame)
-        navigation_buttons_frame.pack(anchor='center')
-        if self.current_cluster != 0:
-            tk.Button(navigation_buttons_frame, text="First Cluster", command=lambda: self.previous_cluster(first_cluster=True)).pack(side="left", padx=5)
-        if self.current_cluster > 0:
-            tk.Button(navigation_buttons_frame, text="Previous Cluster", command=self.previous_cluster).pack(side="left", padx=5)
-        if self.current_cluster < len(self.clusters) - 1:
-            tk.Button(navigation_buttons_frame, text="Next Cluster", command=self.next_cluster).pack(side="left", padx=5)
-        if self.current_cluster != len(self.clusters) - 1:
-            tk.Button(navigation_buttons_frame, text="Last Cluster", command=lambda: self.next_cluster(last_cluster=True)).pack(side="left", padx=5)
-        tk.Button(self.navigation_frame, text="Finish Adjustments", command=self.finish_manual_updates).pack(anchor='center', pady=(5,0))
-
-
-    # Functions for moving terms around the canvas and merging them
-    def start_drag(self, event):
-        self.dragged_button = event.widget
-        # Where the button was grabbed
-        self.last_dragged_x = event.x_root
-        self.last_dragged_y = event.y_root
-        # Original position of the grabbed button in the term canvas
-        self.dragged_original_x, self.dragged_original_y = self.term_canvas.coords(self.dragged_button.canvas_id)
-        self.is_dragging = False
-
-    def drag(self, event):
-        # Movement of the button in the canvas
-        dx = event.x_root - self.last_dragged_x
-        dy = event.y_root - self.last_dragged_y
-        if abs(dx) > 3 or abs(dy) > 3:
-            self.is_dragging = True
-        if not self.is_dragging:
-            return
-        x, y = self.term_canvas.coords(self.dragged_button.canvas_id)
-        self.term_canvas.coords(self.dragged_button.canvas_id, x + dx, y + dy)
-        self.last_dragged_x = event.x_root
-        self.last_dragged_y = event.y_root
-
-    def end_drag(self, event):
-        if not self.is_dragging:
-            self.toggle_term(self.dragged_button)
-            return
-        for button in self.term_buttons:
-            if button == self.dragged_button:
-                continue
-            if self.buttons_overlap(self.dragged_button, button):
-                self.merge_terms(self.dragged_button, button)
-                return
-        # If no merge occurred, return the button to its original position
-        self.term_canvas.coords(self.dragged_button.canvas_id,self.dragged_original_x,self.dragged_original_y)
-
-        
-    # Functions used for the merging of terms
-    def buttons_overlap(self, dragged_button, button):
-        x1, y1 = self.term_canvas.coords(dragged_button.canvas_id)
-        w1, h1 = dragged_button.winfo_width(), dragged_button.winfo_height()
-        x2, y2 = self.term_canvas.coords(button.canvas_id)
-        w2, h2 = button.winfo_width(), button.winfo_height()
-        return (abs(x1 - x2) < (w1 + w2) / 2 and abs(y1 - y2) < (h1 + h2) / 2)
-
-    def merge_terms(self, dragged_button, button):
-        merge_history = self.clusters[self.current_cluster]['merge_history']
-        term1 = dragged_button.cget("text")
-        term2 = button.cget("text")
-        merged_x, merged_y = self.term_canvas.coords(button.canvas_id)
-
-        name = simpledialog.askstring("Merge terms", f"Enter a name for:\n{term1} + {term2}", parent=self.parent)
-        if not name:
-            self.term_canvas.coords(dragged_button.canvas_id, self.dragged_original_x, self.dragged_original_y)
-            return
-        previously_merged_term1 = getattr(dragged_button, "merged_terms", None)
-        if previously_merged_term1 is None:
-            previously_merged_term1 = [term1]
-        previously_merged_term2 = getattr(button, "merged_terms", None)
-        if previously_merged_term2 is None:
-            previously_merged_term2 = [term2]
-        merge_info = {
-            "term1": previously_merged_term1,
-            "term2": previously_merged_term2,
-            "pos1": (self.dragged_original_x, self.dragged_original_y),
-            "pos2": (merged_x, merged_y),
-            "name": name
-        }
-        merge_history.append(merge_info)
-        self.clusters[self.current_cluster]['merge_hisotry'] = merge_history
-        self.term_canvas.delete(dragged_button.canvas_id)
-        self.term_canvas.delete(button.canvas_id)
-        self.term_buttons.remove(dragged_button)
-        self.term_buttons.remove(button)
-        merged_button = tk.Button(self.term_canvas, text=name, font=("Arial", 10), relief="flat", bd=0, highlightthickness=0, padx=10, pady=5)
-        window = self.term_canvas.create_window(merged_x, merged_y, window=merged_button)
-        merged_button.canvas_id = window
-        merged_button.merged_terms = previously_merged_term1 + previously_merged_term2
-        merged_button.bind("<ButtonPress-1>", self.start_drag)
-        merged_button.bind("<B1-Motion>", self.drag)
-        merged_button.bind("<ButtonRelease-1>", self.end_drag)
-        self.term_buttons.append(merged_button)
-
-    def undo_merge(self):
-        merge_history = self.clusters[self.current_cluster]['merge_hisotry']
-        if not merge_history:
-            return
-        merge = merge_history.pop()
-        merged_button = None
-        for button in self.term_buttons:
-            if button.cget("text") == merge["name"]:
-                merged_button = button
-                break
-        if merged_button is None:
-            return
-        self.term_canvas.delete(merged_button.canvas_id)
-        self.term_buttons.remove(merged_button)
-        button1 = tk.Button(self.term_canvas, text=merge["term1"], font=("Arial", 10), relief="flat", bd=0, highlightthickness=0, padx=10, pady=5)
-        window1 = self.term_canvas.create_window(merge["pos1"][0], merge["pos1"][1], window=button1)
-        button1.canvas_id = window1
-        button2 = tk.Button(self.term_canvas, text=merge["term2"], font=("Arial", 10), relief="flat", bd=0, highlightthickness=0, padx=10, pady=5)
-        window2 = self.term_canvas.create_window(merge["pos2"][0], merge["pos2"][1], window=button2)
-        button2.canvas_id = window2
-        for button in (button1, button2):
-            button.bind("<ButtonPress-1>", self.start_drag)
-            button.bind("<B1-Motion>", self.drag)
-            button.bind("<ButtonRelease-1>", self.end_drag)
+            button.config(command=lambda b=button: self.toggle_term(b))
+            button.bind("<Button-3>", self.term_right_click)
             self.term_buttons.append(button)
 
 
-    # Function to show new image
-    def shuffle_images(self, images):
-        image_path = get_image(self.round_output_dir, images, self.current_cluster)
-        image = Image.open(image_path)
-        image.thumbnail((1000, 800))
-        self.cluster_image = ImageTk.PhotoImage(image)
-        self.cluster_collage_image.config(image=self.cluster_image)
+    # Function for right clicking terms
+    def term_right_click(self, event):
+        button = event.widget
+        menu = tk.Menu(self.parent, tearoff=0)
+        current_font = button.cget("font") 
+        term = button.cget("text")
+        if "overstrike" in str(current_font): 
+            delete_label = "Recover term"
+        else: 
+            delete_label = "Delete term"
+        menu.add_command(label=delete_label, command=lambda b=button: self.toggle_term(b))
+        menu.add_command(label="Rename term", command=lambda b=button: self.rename_term(b))
+        if "->" in term:
+            menu.add_command(label="Reset term", command=lambda b=button: self.reset_term(b))
+        menu.tk_popup(event.x_root, event.y_root)
 
 
-    # Function for the removal of terms from the cluster view
+    # Function for the removal or renaming of terms from the cluster view
     def toggle_term(self, button): 
         """ Toggle a strike-through effect on a term.""" 
-        current_font = button.cget("font") 
-        if "overstrike" in str(current_font): 
-            button.config(font=("Arial", 10)) 
-        else: button.config(font=("Arial", 10, "overstrike"))
+        term = button.cget("text")
+        if "->" in term:
+            answer = messagebox.askyesno("Warning", 'Do you want to delete the original term without replacement?')
+            if answer: 
+                original_term = getattr(button, "original_term")
+                button.config(font=("Arial", 10, "overstrike"))
+                button.config(text=original_term)
+        else:
+            current_font = button.cget("font") 
+            if "overstrike" in str(current_font): 
+                button.config(font=("Arial", 10)) 
+            else: button.config(font=("Arial", 10, "overstrike"))
 
+    def strike(self, text):
+        return ''.join(char + '\u0336' for char in text)
 
-    # Saving cluster terms and their positions for the next round of clustering
-    def save_current_terms(self):
-        terms = []
-        for button in self.term_buttons:
-            x, y = self.term_canvas.coords(button.canvas_id)
-            terms.append({
-                "term": button.cget("text"),
-                "selected": "overstrike" in str(button.cget("font")),
-                "x": x,
-                "y": y,
-                "merged_terms": getattr(button, "merged_terms", None)
-            })
-        self.clusters[self.current_cluster]["terms"] = terms
+    def rename_term(self, button):
+        term = button.cget("text")
+        if "->" in term:
+            term = term.split("->", 1)[1].strip()
+        original_term = getattr(button, "original_term")
+        new_term = simpledialog.askstring("Rename term", f"Enter a new term for: {term} \n (Original term was: {original_term})", parent=self.parent)
+        if not new_term:
+            return
+        if new_term == original_term:
+            new_text = original_term
+        else:
+            new_text = f"{self.strike(original_term)} -> {new_term}"
+        button.config(font=("Arial", 10)) 
+        button.config(text=new_text)
+
+    def reset_term(self, button):
+        original_term = getattr(button, "original_term")
+        button.config(text=original_term)
 
 
     # Helper functions for navigating between clusters
@@ -476,6 +402,47 @@ class ClusterView:
         elif self.current_cluster > 0:
             self.current_cluster -= 1
         self.show_current_cluster()
+
+
+    # Function to show new image
+    def shuffle_images(self):
+        if 'collage_' in self.current_image:
+            self.current_image = get_image(self.cluster_img_desc, self.round_collage_outdir, self.current_cluster, True) # get new collage
+        else: 
+            self.current_image = get_image(self.cluster_img_desc, self.round_collage_outdir, self.current_cluster, False) # get new descriptions
+        image = Image.open(self.current_image)
+        image.thumbnail((1000, 800))
+        self.cluster_image = ImageTk.PhotoImage(image)
+        self.cluster_collage_image.config(image=self.cluster_image)
+        self.results_canvas.yview_moveto(0)
+    
+    def change_image_type(self):
+        if 'collage_' in self.current_image:
+            self.change_img_type_button.config(text='Show images collage')
+            self.current_image = get_image(self.cluster_img_desc, self.round_collage_outdir, self.current_cluster, False) # current = collage -> get descriptions
+        else: 
+            self.change_img_type_button.config(text="Show image descriptions")
+            self.current_image = get_image(self.cluster_img_desc, self.round_collage_outdir, self.current_cluster, True) # current = desc -> get collage
+        image = Image.open(self.current_image)
+        image.thumbnail((1000, 800))
+        self.cluster_image = ImageTk.PhotoImage(image)
+        self.cluster_collage_image.config(image=self.cluster_image)
+        self.results_canvas.yview_moveto(0)
+
+
+    # Saving cluster terms and their positions for the next round of clustering
+    def save_current_terms(self):
+        terms = []
+        for button in self.term_buttons:
+            x, y = self.term_canvas.coords(button.canvas_id)
+            terms.append({
+                "term": button.cget("text"),
+                "selected": "overstrike" in str(button.cget("font")),
+                "x": x,
+                "y": y,
+                "original_term": getattr(button, "original_term")
+            })
+        self.clusters[str(self.current_cluster)]["terms"] = terms
 
 
     # Function to handle finishing the manual updates process 
@@ -499,17 +466,17 @@ class ClusterView:
         cluster_updates = os.path.join(self.round_output_dir, "cluster_updates.csv")
         os.makedirs(self.next_output_dir, exist_ok=True)
         with open(cluster_updates, 'w', encoding='utf-8', newline='') as out:
-            out.write('cluster_id,term,delete,merged_terms\n')
+            out.write('cluster_id,term,delete,new_term\n')
             for cluster in self.clusters:
                 for term_dict in cluster["terms"]:
-                    term = term_dict["term"]
+                    term = term_dict["original_term"]
                     delete = str(term_dict["selected"])
-                    merged_terms = term_dict["merged_terms"]
-                    if merged_terms:
-                        terms = "|".join(merged_terms)
+                    text = term_dict["term"]
+                    if "->" in text:
+                        new_term = text.split("->", 1)[1].strip()
                     else:
-                        terms = ""
-                    out.write(f"{cluster['cluster_id']},{term},{delete},{terms}\n")
+                        new_term = ""
+                    out.write(f"{cluster['cluster_id']},{term},{delete},{new_term}\n")
         out.close()
         threading.Thread(target=self.update_texts_background, args=(), daemon=True).start()
 

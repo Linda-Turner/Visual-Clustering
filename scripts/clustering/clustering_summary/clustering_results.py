@@ -23,33 +23,28 @@ def store_clustering_results(
     if indeterminate_callback:
         indeterminate_callback("Preparing to get clusturing results ...")
 
-    texts_df = read_text(input_file) #id, path, text
-    embeddings_df = read_embeddings(embedding_file) # id, emb_....
-    clusters_df,  cluster_counts = read_clusters(clusters_file) # id, cluster
+    texts_df = read_text(input_file) #ID, path, text
+    texts_df['ID'] = texts_df['ID'].astype(str)
+    clusters_df,  cluster_counts = read_clusters(clusters_file) # ID, clusterid
+    clusters_df['ID'] = clusters_df['ID'].astype(str)
+    embeddings_df = read_embeddings(embedding_file) # ID, emb_..
+    embeddings_df['ID'] = embeddings_df['ID'].astype(str)
     cluster_seperation = cluster_silhouette_scores(embeddings_df, clusters_df)
-    topics = {clusterid: '' for clusterid in cluster_counts if clusterid != -1}
-    images = {clusterid: [] for clusterid in cluster_counts if clusterid != -1}
-    num_topics = len(topics)
 
-    for row in clusters_df.itertuples():
-        image_id, cluster_id = row.id, row.clusterId
+    cluster_img_desc = clusters_df.merge(texts_df, on='ID', how='inner') # ID, clusterid, path, text
+    output_cluster_img_desc = os.path.join(output_dir, 'clusters_img_desc.csv')
+    cluster_img_desc.to_csv(output_cluster_img_desc, index=False)
+
+    topics = {clusterid: '' for clusterid in cluster_counts if clusterid != -1}
+    for row in cluster_img_desc.itertuples():
+        cluster_id, text = row.clusterId, row.text
         if cluster_id == -1: continue
-        image_id_row = texts_df[texts_df['id'] == str(image_id)]
-        text = image_id_row.iloc[0]['text']
-        path = image_id_row.iloc[0]['path']
         topics[cluster_id] += ' ' + text
-        images[cluster_id].append(path)
 
     cluster_ids = list(topics.keys())
     cluster_texts = list(topics.values())
-    # nlp = spacy.load("en_core_web_sm")
-    # spacy_docs = self.nlp.pipe(cluster_texts, batch_size=50)
-    # lemmatized_texts = []
-    # for text in cluster_texts:
-    #     text_words = text.split(" ")
-    #     spacy_doc = nlp(text)
-    #     lemmatized_words = [token.lemma_ for token in spacy_doc])
-    #     
+    num_topics = len(cluster_ids)
+
     vectorizer = TfidfVectorizer(stop_words="english",ngram_range=(1, 2))
     res = vectorizer.fit_transform(cluster_texts)
     features = vectorizer.get_feature_names_out()
@@ -61,13 +56,6 @@ def store_clustering_results(
         doc.sort(key=lambda x: x[1], reverse=True)
         top_doc = doc[:num_keys]
         ngrams = [str(term).split() for term, _ in top_doc if len(str(term).split()) > 1]
-        # for term, _ in top_doc:
-        #     term = str(term)
-        #     if any(term in ngram for ngram in ngrams):
-        #         ngram_counter += 1
-        #         top_doc.append(doc[num_keys+ngram_counter])
-        #         continue
-        #     cluster_terms.append(term)
         cluster_terms = []
         i = 0
         while len(cluster_terms) < num_keys and i < len(doc):
@@ -81,12 +69,6 @@ def store_clustering_results(
                 ngrams.append(str(term).split())
                 cluster_terms = [cluster_term for cluster_term in cluster_terms 
                                  if not (cluster_term in term.split())]
-                # remove_terms = []
-                # for cluster_term in cluster_terms:
-                #     if any(cluster_term in ngram for ngram in ngrams):
-                #         remove_terms.append(cluster_term)
-                # for remove_term in remove_terms:
-                #     cluster_terms.remove(remove_term)
             cluster_terms.append(term)
             i += 1
         text_summary[cluster_id] = ','.join(cluster_terms)
@@ -95,7 +77,7 @@ def store_clustering_results(
     print('Number of outliers: ' + str(cluster_counts.get(-1, 0)))
 
     output_cluster_terms = os.path.join(output_dir, cluster_terms_file)
-    write_cluster_terms(output_cluster_terms, text_summary, images, cluster_counts, cluster_seperation, num_keys)
+    write_cluster_terms(output_cluster_terms, text_summary, cluster_counts, cluster_seperation, num_keys)
 
 
 def read_text(text_file):
@@ -106,9 +88,8 @@ def read_text(text_file):
             text = row['Labels']
             if text.strip() == '':continue
             rows.append({
-                'id': row['ID'],
+                'ID': row['ID'],
                 'path': os.path.join(row['Dir'].strip(),row['ImageID'].strip()),
-                # 'path': row['Dir'].strip() + '/' + row['ImageID'],
                 'text': text
             })
     return pd.DataFrame(rows)
@@ -116,13 +97,13 @@ def read_text(text_file):
 
 def read_embeddings(embedding_file):
     df = pd.read_csv(embedding_file, header=None)
-    df.columns = ['id'] + [f'emb_{i}' for i in range(df.shape[1] - 1)]
+    df.columns = ['ID'] + [f'emb_{i}' for i in range(df.shape[1] - 1)]
     return df
 
 
 def read_clusters(clusters_file):
     df = pd.read_csv(clusters_file)
-    df.columns = ['id', 'clusterId']
+    df.columns = ['ID', 'clusterId']
     cluster_counts = df['clusterId'].value_counts().to_dict()
     return df, cluster_counts
 
@@ -140,7 +121,6 @@ def read_selected_keys(sel_keys_file):
 def write_cluster_terms(
         cluster_terms: str,
         text_summary: dict,
-        images: dict,
         cluster_counts: dict,
         silhouette: dict,
         num_keys: int
@@ -149,19 +129,17 @@ def write_cluster_terms(
         out.write('CID,Sil,Size')
         for k in range(num_keys):
             out.write(',Term ' + str(k))
-        out.write(',Images')
         out.write('\n')
         for cluster_id, terms in text_summary.items():
-            image_paths = str(images[cluster_id])
             cl_size = cluster_counts[cluster_id]
-            out.write(str(cluster_id) + ',' + str(round(silhouette[cluster_id], 2)) + ',' + str(cl_size) + ',' + terms + ',' + '"' + image_paths + '"' + '\n')
+            out.write(str(cluster_id) + ',' + str(round(silhouette[cluster_id], 2)) + ',' + str(cl_size) + ',' + terms + '\n')
 
 
 def cluster_silhouette_scores(
         embeddings_df,
         clusters_df
     ):
-    df = embeddings_df.merge(clusters_df,on='id',how='inner')
+    df = embeddings_df.merge(clusters_df,on='ID',how='inner')
     df = df[df['clusterId']!=-1]
     X = df.filter(like='emb_').values
     labels = df['clusterId'].values

@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 from scripts.GUI.argument_setting import create_argument_settings
-from scripts.GUI.cluster_interface import ClusterView
+from scripts.GUI.clustering_interface import ClusterView
 
 class ClusteringGUI:
 
@@ -149,7 +149,7 @@ class ClusteringGUI:
             tk.Label(self.root, text="NOTE:", font=("Arial", 10)).pack(pady=(0,0))
             tk.Label(self.root, text="This folder does not need to exist already.", font=("Arial", 10)).pack(pady=(0,10))
             self.dir_entry = ttk.Entry(self.root)
-            self.dir_entry.insert(0, "clustering_results")
+            self.dir_entry.insert(0, "clustering_results_ngram")
             self.dir_entry.pack(pady=(0, 20))
 
         button_frame = tk.Frame(self.root)

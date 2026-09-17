@@ -8,6 +8,7 @@ original.py
 
 scripts/not_used/
 scripts/clustering_summary/clustering_images.py
+scripts/GUI/cluster_interface_merger.py
 scripts/clustering_summary/plot.py
 
 .vclustenv/
