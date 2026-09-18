@@ -7,7 +7,7 @@ from PIL import Image, ImageTk
 
 from scripts.clustering.orchestrator import orchestrate_clustering 
 from scripts.clustering.clustering_logic.update_cluster import update_clustering_terms
-from scripts.clustering.clustering_summary.cluster_images import get_image
+from scripts.clustering.clustering_summary.cluster_visualization_images import get_image
 
 class ClusterView:
     """
@@ -228,7 +228,7 @@ class ClusterView:
         self.round_collage_outdir = os.path.join(self.round_output_dir,"collages")
         os.makedirs(self.round_collage_outdir, exist_ok=True)
 
-        cluster_info_file = os.path.join(self.round_output_dir, "clusters_img_desc.csv")
+        cluster_info_file = os.path.join(self.round_output_dir, "cluster_division.csv")
         self.cluster_img_desc = {}
         with open(cluster_info_file, newline='', encoding="utf-8") as csvfile:
             reader = csv.DictReader(csvfile)
@@ -260,6 +260,8 @@ class ClusterView:
             widget.destroy()
         tk.Label(self.metainfo_label, text=f"Results for clustering round {self.round}", font=("Arial", 11)).pack(pady=(0,2))
         tk.Label(self.metainfo_label,text=(f"Cluster {self.current_cluster + 1} of {len(self.clusters)}: Cluster ID: {cluster_id}, Silhouette Score: {silhouette}, Cluster Size: {size}"), font=("Arial", 11)).pack(pady=(0, 5))
+        tk.Button(self.metainfo_label, text="Show visualization", command=self.show_visualization).pack(pady=(0,5))
+
         content_frame = tk.Frame(self.results_frame)
         content_frame.pack(pady=(0, 0))
 
@@ -278,6 +280,50 @@ class ClusterView:
         if self.current_cluster != len(self.clusters) - 1:
             tk.Button(navigation_buttons_frame, text="Last Cluster", command=lambda: self.next_cluster(last_cluster=True)).pack(side="left", padx=5)
         tk.Button(self.navigation_frame, text="Finish Adjustments", command=self.finish_manual_updates).pack(anchor='center', pady=(5,0))
+
+    def show_visualization(self):
+        popup = tk.Toplevel(self.parent)
+        popup.title("Cluster Visualization")
+        popup.geometry("1600x850")
+        popup.transient(self.parent)
+
+        image_frame = tk.Frame(popup)
+        image_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        visualization_path = os.path.join(self.round_output_dir, "cluster_visualization.png")
+        visualization = Image.open(visualization_path)
+        # visualization.thumbnail((750, 750))
+        # visualization_image = ImageTk.PhotoImage(visualization)
+        # visualization_label = tk.Label(image_frame, image=visualization_image)
+        visualization_label = tk.Label(image_frame)
+        visualization_label.pack(side="left", padx=10, pady=10)
+        # visualization_label.image = visualization_image
+
+        heatmap_path = os.path.join(self.round_output_dir, "cluster_heatmap.png")
+        heatmap = Image.open(heatmap_path)
+        # heatmap.thumbnail((750, 750))
+        # heatmap_image = ImageTk.PhotoImage(heatmap)
+        # heatmap_label = tk.Label(image_frame, image=heatmap_image)
+        heatmap_label = tk.Label(image_frame)
+        heatmap_label.pack(side="left", padx=10, pady=10)
+        # heatmap_label.image = heatmap_image
+
+        def resize_images(event=None):
+            width = max(image_frame.winfo_width() // 2 - 30, 100)
+            height = max(image_frame.winfo_height() - 30, 100)
+            vis = visualization.copy()
+            vis.thumbnail((width, height))
+            heat = heatmap.copy()
+            heat.thumbnail((width, height))
+            visualization_image = ImageTk.PhotoImage(vis)
+            heatmap_image = ImageTk.PhotoImage(heat)
+            visualization_label.config(image=visualization_image)
+            heatmap_label.config(image=heatmap_image)
+            visualization_label.image = visualization_image
+            heatmap_label.image = heatmap_image
+        image_frame.bind("<Configure>", resize_images)
+
+        popup.after(100, resize_images)
+
 
     def create_image_frame(self, content_frame):
         image_frame = tk.Frame(content_frame)

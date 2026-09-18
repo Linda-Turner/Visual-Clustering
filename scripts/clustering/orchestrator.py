@@ -4,7 +4,7 @@ import time
 from scripts.clustering.clustering_logic.embed import embed
 from scripts.clustering.clustering_logic.reduce import reduce_dim
 from scripts.clustering.clustering_logic.cluster import cluster_embeddings
-from scripts.clustering.clustering_summary.clustering_results import store_clustering_results
+from scripts.clustering.clustering_summary.clustering_descriptions import get_cluster_descriptions
 
 
 def orchestrate_clustering(input_file, round_output_dir,previous_output_dir, num_keys, arguments, round,progress_callback=None, indeterminate_callback=None, step_callback=None):
@@ -24,20 +24,20 @@ def orchestrate_clustering(input_file, round_output_dir,previous_output_dir, num
     if round > 0:
         # Embed
         step_callback("Step 1/4: Embedding")
-        embed(input_file=input_file, output_file='embedding.csv', 
+        embed(input_file=input_file, output_file='embeddings.csv', 
             output_dir=round_output_dir, previous_output_dir=previous_output_dir,
             model=embedding_model, batch=embedding_batch,
             topk=topk, progress_callback=progress_callback, credentials=credentials, indeterminate_callback=indeterminate_callback)
-        embedding_filepath = os.path.join(round_output_dir, 'embedding.csv')
+        embedding_filepath = os.path.join(round_output_dir, 'embeddings.csv')
 
         # Reduce
         step_callback("Step 2/4: Dimension Reduction")
-        reduce_dim(input_file=embedding_filepath, output_file='reduction.csv', output_dir=round_output_dir,
+        reduce_dim(input_file=embedding_filepath, output_file='reductions.csv', output_dir=round_output_dir,
                 batch=reduction_batch, scaling=scaling,
                 model=reduction_model, components=components,
                 neighbors=neighbors, 
                 progress_callback=progress_callback, indeterminate_callback=indeterminate_callback)
-        reduction_filepath = os.path.join(round_output_dir, 'reduction.csv')
+        reduction_filepath = os.path.join(round_output_dir, 'reductions.csv')
 
         # Cluster
         step_callback("Step 3/4: Clustering")
@@ -49,11 +49,12 @@ def orchestrate_clustering(input_file, round_output_dir,previous_output_dir, num
     
         # Analyze
         step_callback("Step 4/4: Cluster Analysis")
-        cluster_terms_filepath = store_clustering_results(input_file=input_file, output_dir=round_output_dir,
-                            embedding_file=embedding_filepath, clusters_file=cluster_filepath,
-                            cluster_terms_file='cluster_terms.csv',
+        cluster_terms_filepath = get_cluster_descriptions(input_file=input_file, output_dir=round_output_dir,
+                            embedding_file=reduction_filepath, clusters_file=cluster_filepath,
+                            cluster_descriptions_file='cluster_descriptions.csv', cluster_division_file="cluster_division.csv",
+                            cluster_2d_plot_file='cluster_visualization.png', cluster_centroid_hm_file='cluster_heatmap.png',
                             num_keys=num_keys, 
                             progress_callback=progress_callback, indeterminate_callback=indeterminate_callback)
-    cluster_terms_filepath = os.path.join(round_output_dir, 'cluster_terms.csv')
+    cluster_terms_filepath = os.path.join(round_output_dir, 'cluster_descriptions.csv')
 
     return cluster_terms_filepath
