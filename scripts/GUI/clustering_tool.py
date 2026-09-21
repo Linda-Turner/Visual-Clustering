@@ -19,6 +19,47 @@ class ClusteringGUI:
 
         self.show_instructions()
 
+
+    def show_progress_banner(self, current_step, frame, clustering_round=0):
+        canvas_height = 40
+        self.step_tracker_frame = tk.Frame(frame, height=canvas_height)
+        self.step_tracker_frame.pack(fill="x", expand=False)
+        self.step_tracker_canvas = tk.Canvas(self.step_tracker_frame,  height=canvas_height)#background="#F5F5F5",
+        self.step_tracker_canvas.pack(fill="x", expand=False)
+        def draw_step_tracker(event=None):
+            self.step_tracker_canvas.delete("all")
+            dist = 10
+            shape_length = (self.step_tracker_canvas.winfo_width()/5) - (dist)
+            for i in range(5):
+                if i == current_step:
+                    outline_width = 3
+                    fill = "#CCCCCC"
+                    font = ("Arial", 11, "bold")
+                else:
+                    outline_width = 2
+                    # fill = "#F5F5F5"
+                    fill = "#F0F0F0"
+                    font = ("Arial", 11)
+                shape_point_length = shape_length / 6
+                x_left = ((shape_length + dist) * i) + (dist * 0.5)
+                x_middle_right = x_left + shape_length - shape_point_length
+                x_right = x_middle_right + shape_point_length
+                x_middle_left = x_left + shape_point_length
+                polygon_points = [x_left,35,x_middle_right,35,x_right,18,x_middle_right,5,x_left,5,x_middle_left,18]
+                self.step_tracker_canvas.create_polygon(polygon_points, outline="#000000", fill=fill, width=outline_width)
+                if i > 1:
+                    circle_points = [x_middle_right - (15), 30, x_middle_right + (5), 10]
+                    self.step_tracker_canvas.create_oval(circle_points, outline="#000000", fill=fill, width=outline_width)
+                    self.step_tracker_canvas.create_text(x_middle_right - (5), 20, text= str(clustering_round), font=font)
+                if i == 0: text='File Selection'
+                elif i == 1: text='Parameter Setting'
+                elif i == 2: text='Clustering'
+                elif i == 3: text='Text Adjusting'
+                elif i == 4: text='Cluster Updates'
+                self.step_tracker_canvas.create_text(x_middle_left + ((x_middle_right - x_middle_left) / 2) - 10, 19, text= text, font=font)
+        self.step_tracker_canvas.bind("<Configure>", draw_step_tracker)
+
+
     def show_instructions(self):
         for widget in self.root.winfo_children():
             widget.destroy()
@@ -51,6 +92,8 @@ class ClusteringGUI:
             widget.destroy()
         self.continued_clustering = False
 
+        self.show_progress_banner(0, self.root)
+
         tk.Label(self.root,text="Step 0. Start or Continue Clustering", font=("Arial", 14)).pack(pady=(10, 10))
         tk.Label(self.root, text="[Choose whether you would like to start a new clustering process or continue an existing one]", font=("Arial", 12), wraplength=700,justify="center").pack(pady=(0, 5))
         tk.Label(self.root, text="NOTE:", font=("Arial", 10)).pack(pady=(0,0))
@@ -64,6 +107,9 @@ class ClusteringGUI:
     def clustering_round(self):
         for widget in self.root.winfo_children():
             widget.destroy()
+
+        self.show_progress_banner(0, self.root)
+        
         self.continued_clustering = True
         tk.Label(self.root, text="Step 0. Clustering Round Selection", font=("Arial", 14)).pack(pady=(10,10))
         tk.Label(self.root, text="[Select the folder containing the previous clustering results]", font=("Arial", 12)).pack(pady=(0,5))
@@ -121,6 +167,8 @@ class ClusteringGUI:
         for widget in self.root.winfo_children():
             widget.destroy()
 
+        self.show_progress_banner(0, self.root)
+
         tk.Label(self.root, text="Step 1. File Selection", font=("Arial", 14)).pack(pady=(10,10))
         if self.continued_clustering:
             tk.Label(self.root, text="[CSV file selected automatically because you have chosen to continue with previous clustering rounds]", font=("Arial", 12)).pack(pady=(0,20))
@@ -175,6 +223,8 @@ class ClusteringGUI:
 
         for widget in self.root.winfo_children():
             widget.destroy()
+
+        self.show_progress_banner(1, self.root)
 
         tk.Label(self.root, text="Step 2. Parameter Setting", font=("Arial", 14)).pack(pady=(10, 10))
         tk.Label(self.root, text="[Set the parameters used during clustering]", font=("Arial", 12)).pack(pady=(0,10))

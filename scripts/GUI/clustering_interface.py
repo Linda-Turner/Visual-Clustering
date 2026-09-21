@@ -30,12 +30,18 @@ class ClusterView:
         self.num_keys = 7
         self.arguments = arguments
 
+        self.progress_banner_frame = tk.Frame(parent)
+        self.progress_banner_frame.pack(fill="x", expand=False)
         self.frame = tk.Frame(parent)
         self.frame.pack(fill="both", expand=True)
         self.create_cluster_view()
 
     # Main frame functions
     def create_cluster_view(self):
+        for widget in self.progress_banner_frame.winfo_children():
+            widget.destroy()
+        self.previous.show_progress_banner(2, self.progress_banner_frame, self.round)
+
         self.step_label = tk.Label(self.frame, text="Step 3. Clustering", font=("Arial", 14))
         self.step_label.pack(pady=(10, 10))
 
@@ -121,6 +127,7 @@ class ClusterView:
         self.navigation_frame = tk.Frame(self.results_container,height=80)
         self.navigation_frame.pack(side="bottom",fill="x",pady=(10,5))
 
+
     def update_cluster_view(self, number_updated_ids):
         """
         Update the cluster view for a new round of clustering.
@@ -140,6 +147,10 @@ class ClusterView:
 
         self.previous_output_dir = self.round_output_dir
         self.round += 1
+
+        for widget in self.progress_banner_frame.winfo_children():
+            widget.destroy()
+        self.previous.show_progress_banner(2, self.progress_banner_frame, self.round)
 
 
     # Perform the clustering 
@@ -186,7 +197,9 @@ class ClusterView:
 
     # Show the clustering results
     def review_instructions(self):
-        print(self.round)
+        for widget in self.progress_banner_frame.winfo_children():
+            widget.destroy()
+        self.previous.show_progress_banner(3, self.progress_banner_frame, self.round)
         if self.round == 0:
             self.finish_button.config(state="disabled")
             self.review_cluster.config(state="disabled")
@@ -215,15 +228,19 @@ class ClusterView:
         """
         Read the cluster terms from the CSV file and store them in self.clusters
         """
-        self.clusters = {}
+        self.clusters = []
+        # self.clusters = {}
+        # self.cluster_ids = {}        
         with open(self.cluster_terms_filepath, newline='', encoding="utf-8") as csvfile:
             reader = csv.DictReader(csvfile)
-            for row in reader:
+            for i, row in enumerate(reader):
                 cluster  = {'cluster_id' : row['CID'],
                 'silhouette' : row['Sil'],
                 'size' : row['Size'],
                 'terms': [{"term": row[f'Term {i}'], "selected": False, "x": None, "y": None, "original_term": row[f'Term {i}']} for i in range(self.num_keys)]}
-                self.clusters[row['CID']] = cluster
+                self.clusters.append(cluster)
+                # self.clusters[i] = cluster
+                # self.cluster_ids[i] = row['CID']
         self.current_cluster = 0
         self.round_collage_outdir = os.path.join(self.round_output_dir,"collages")
         os.makedirs(self.round_collage_outdir, exist_ok=True)
@@ -239,7 +256,9 @@ class ClusterView:
                 self.cluster_img_desc[cluster_id].append((row['path'], row['text']))
 
     def show_current_cluster(self):
-        cluster = self.clusters[str(self.current_cluster)]
+        # cluster = self.clusters[self.current_cluster]
+        # cluster_id = self.cluster_ids[self.current_cluster]
+        cluster = self.clusters[self.current_cluster]
         self.results_canvas.yview_moveto(0)
         self.show_cluster(
             cluster["cluster_id"],
@@ -280,50 +299,6 @@ class ClusterView:
         if self.current_cluster != len(self.clusters) - 1:
             tk.Button(navigation_buttons_frame, text="Last Cluster", command=lambda: self.next_cluster(last_cluster=True)).pack(side="left", padx=5)
         tk.Button(self.navigation_frame, text="Finish Adjustments", command=self.finish_manual_updates).pack(anchor='center', pady=(5,0))
-
-    def show_visualization(self):
-        popup = tk.Toplevel(self.parent)
-        popup.title("Cluster Visualization")
-        popup.geometry("1600x850")
-        popup.transient(self.parent)
-
-        image_frame = tk.Frame(popup)
-        image_frame.pack(fill="both", expand=True, padx=10, pady=10)
-        visualization_path = os.path.join(self.round_output_dir, "cluster_visualization.png")
-        visualization = Image.open(visualization_path)
-        # visualization.thumbnail((750, 750))
-        # visualization_image = ImageTk.PhotoImage(visualization)
-        # visualization_label = tk.Label(image_frame, image=visualization_image)
-        visualization_label = tk.Label(image_frame)
-        visualization_label.pack(side="left", padx=10, pady=10)
-        # visualization_label.image = visualization_image
-
-        heatmap_path = os.path.join(self.round_output_dir, "cluster_heatmap.png")
-        heatmap = Image.open(heatmap_path)
-        # heatmap.thumbnail((750, 750))
-        # heatmap_image = ImageTk.PhotoImage(heatmap)
-        # heatmap_label = tk.Label(image_frame, image=heatmap_image)
-        heatmap_label = tk.Label(image_frame)
-        heatmap_label.pack(side="left", padx=10, pady=10)
-        # heatmap_label.image = heatmap_image
-
-        def resize_images(event=None):
-            width = max(image_frame.winfo_width() // 2 - 30, 100)
-            height = max(image_frame.winfo_height() - 30, 100)
-            vis = visualization.copy()
-            vis.thumbnail((width, height))
-            heat = heatmap.copy()
-            heat.thumbnail((width, height))
-            visualization_image = ImageTk.PhotoImage(vis)
-            heatmap_image = ImageTk.PhotoImage(heat)
-            visualization_label.config(image=visualization_image)
-            heatmap_label.config(image=heatmap_image)
-            visualization_label.image = visualization_image
-            heatmap_label.image = heatmap_image
-        image_frame.bind("<Configure>", resize_images)
-
-        popup.after(100, resize_images)
-
 
     def create_image_frame(self, content_frame):
         image_frame = tk.Frame(content_frame)
@@ -374,6 +349,42 @@ class ClusterView:
             button.config(command=lambda b=button: self.toggle_term(b))
             button.bind("<Button-3>", self.term_right_click)
             self.term_buttons.append(button)
+
+    # Function to show cluster graphs
+    def show_visualization(self):
+        popup = tk.Toplevel(self.parent)
+        popup.title("Cluster Visualization")
+        popup.geometry("1600x850")
+        popup.transient(self.parent)
+
+        image_frame = tk.Frame(popup)
+        image_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        visualization_path = os.path.join(self.round_output_dir, "cluster_visualization.png")
+        visualization = Image.open(visualization_path)
+        visualization_label = tk.Label(image_frame)
+        visualization_label.pack(side="left", padx=10, pady=10)
+
+        heatmap_path = os.path.join(self.round_output_dir, "cluster_heatmap.png")
+        heatmap = Image.open(heatmap_path)
+        heatmap_label = tk.Label(image_frame)
+        heatmap_label.pack(side="left", padx=10, pady=10)
+
+        def resize_images(event=None):
+            width = max(image_frame.winfo_width() // 2 - 30, 100)
+            height = max(image_frame.winfo_height() - 30, 100)
+            vis = visualization.copy()
+            vis.thumbnail((width, height))
+            heat = heatmap.copy()
+            heat.thumbnail((width, height))
+            visualization_image = ImageTk.PhotoImage(vis)
+            heatmap_image = ImageTk.PhotoImage(heat)
+            visualization_label.config(image=visualization_image)
+            heatmap_label.config(image=heatmap_image)
+            visualization_label.image = visualization_image
+            heatmap_label.image = heatmap_image
+        image_frame.bind("<Configure>", resize_images)
+
+        popup.after(100, resize_images)
 
 
     # Function for right clicking terms
@@ -488,7 +499,7 @@ class ClusterView:
                 "y": y,
                 "original_term": getattr(button, "original_term")
             })
-        self.clusters[str(self.current_cluster)]["terms"] = terms
+        self.clusters[self.current_cluster]["terms"] = terms
 
 
     # Function to handle finishing the manual updates process 
@@ -496,6 +507,10 @@ class ClusterView:
         """
         Write the updated cluster terms to a CSV file and update the clusters data structure.
         """
+        for widget in self.progress_banner_frame.winfo_children():
+            widget.destroy()
+        self.previous.show_progress_banner(4, self.progress_banner_frame, self.round)
+
         self.save_current_terms()
         self.results_container.pack_forget()
         self.clustering_frame.pack(fill="both", expand=True)
