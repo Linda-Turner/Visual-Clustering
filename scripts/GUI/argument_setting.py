@@ -4,7 +4,7 @@ from tkinter import ttk
 
 def create_argument_settings(parent, arguments):
     columns_frame = tk.Frame(parent)
-    columns_frame.pack(fill="both", expand=True, padx=20)
+    columns_frame.pack(fill="both", expand=True, padx=20, pady=20)
 
     # Embedding
     embedding_frame = tk.LabelFrame(columns_frame,text="Embedding",padx=15,pady=15)

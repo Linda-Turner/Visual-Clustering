@@ -14,78 +14,92 @@ class ClusteringGUI:
 
         self.input_file = None
         self.output_dir = None
-        self.round = 0
+        self.round = 1
         self.continued_clustering = False
 
         self.show_instructions()
 
 
-    def show_progress_banner(self, current_step, frame, clustering_round=0):
+    def show_progress_banner(self, current_step, frame, clustering_round=1):
         canvas_height = 40
-        self.step_tracker_frame = tk.Frame(frame, height=canvas_height)
+        self.step_tracker_frame = tk.Frame(frame, height=canvas_height, background="#CCCCCC",bd=0,highlightthickness=0)
         self.step_tracker_frame.pack(fill="x", expand=False)
-        self.step_tracker_canvas = tk.Canvas(self.step_tracker_frame,  height=canvas_height)#background="#F5F5F5",
+        self.step_tracker_canvas = tk.Canvas(self.step_tracker_frame,  height=canvas_height, background="#CCCCCC",bd=0,highlightthickness=0)#background="#F5F5F5",
         self.step_tracker_canvas.pack(fill="x", expand=False)
         def draw_step_tracker(event=None):
             self.step_tracker_canvas.delete("all")
             dist = 10
-            shape_length = (self.step_tracker_canvas.winfo_width()/5) - (dist)
-            for i in range(5):
+            shape_length = (self.step_tracker_canvas.winfo_width()/6) - (dist)
+            for i in range(6):
                 if i == current_step:
-                    outline_width = 3
-                    fill = "#CCCCCC"
+                    outline_width = 2
+                    fill = "#F0F0F0"
                     font = ("Arial", 11, "bold")
                 else:
-                    outline_width = 2
+                    outline_width = 1
                     # fill = "#F5F5F5"
-                    fill = "#F0F0F0"
+                    fill = "#CCCCCC"
                     font = ("Arial", 11)
                 shape_point_length = shape_length / 6
                 x_left = ((shape_length + dist) * i) + (dist * 0.5)
                 x_middle_right = x_left + shape_length - shape_point_length
                 x_right = x_middle_right + shape_point_length
                 x_middle_left = x_left + shape_point_length
-                polygon_points = [x_left,35,x_middle_right,35,x_right,18,x_middle_right,5,x_left,5,x_middle_left,18]
+                # polygon_points = [x_left,38,x_middle_right,38,x_right,23,x_middle_right,21,x_left,8,x_middle_left,21]
+                polygon_points = [x_left,7,x_middle_right,7,x_right,22,x_middle_right,37,x_left,37,x_middle_left,22]
                 self.step_tracker_canvas.create_polygon(polygon_points, outline="#000000", fill=fill, width=outline_width)
-                if i > 1:
-                    circle_points = [x_middle_right - (15), 30, x_middle_right + (5), 10]
-                    self.step_tracker_canvas.create_oval(circle_points, outline="#000000", fill=fill, width=outline_width)
-                    self.step_tracker_canvas.create_text(x_middle_right - (5), 20, text= str(clustering_round), font=font)
                 if i == 0: text='File Selection'
                 elif i == 1: text='Parameter Setting'
                 elif i == 2: text='Clustering'
                 elif i == 3: text='Text Adjusting'
                 elif i == 4: text='Cluster Updates'
-                self.step_tracker_canvas.create_text(x_middle_left + ((x_middle_right - x_middle_left) / 2) - 10, 19, text= text, font=font)
+                elif i == 5: text='Finalize Clusters'
+                if 5 > i > 1:
+                    circle_points = [x_middle_right - (15), 32, x_middle_right + (5), 12]
+                    self.step_tracker_canvas.create_oval(circle_points, outline="#000000", fill=fill, width=outline_width)
+                    self.step_tracker_canvas.create_text(x_middle_right - (5), 22, text= str(clustering_round), font=font)
+                    self.step_tracker_canvas.create_text(x_middle_left + ((x_middle_right - x_middle_left) / 2) - 10, 22, text= text, font=font)
+                else:
+                    self.step_tracker_canvas.create_text(x_middle_left + ((x_middle_right - x_middle_left) / 2), 22, text= text, font=font)
         self.step_tracker_canvas.bind("<Configure>", draw_step_tracker)
 
+    def show_instruction_banner(self, frame, step_text, action_text, note_text):
+        height = 51 + 15 * len(note_text)
+        banner_frame = tk.Frame(frame, bg="#CCCCCC", height=height)
+        banner_frame.pack(fill="x", expand=False)
+        step_label = tk.Label(banner_frame, text=step_text, font=("Arial", 14), bg="#CCCCCC")
+        step_label.pack(pady=(5,7))
+        action_label = tk.Label(banner_frame, text=action_text, font=("Arial", 12), bg="#CCCCCC")
+        action_label.pack(pady=(0,7))
+        for note in note_text:
+            note_label = tk.Label(banner_frame, text=note, font=("Arial", 10), bg="#CCCCCC")
+            note_label.pack(pady=(0,4))
 
     def show_instructions(self):
         for widget in self.root.winfo_children():
             widget.destroy()
 
-        tk.Label(self.root, text="Welcome to the Visual Clustering Tool!", font=("Arial", 20)).pack(pady=(20, 20))
-        tk.Label(self.root, text="This tool allows you to iteratively cluster images into groups based on their visual descriptions.", font=("Arial", 14)).pack(pady=(0,20))
-        tk.Label(self.root, text="After each iteration you can manually inspect the clusters and alter the visual descriptions to improve the clustering result.", font=("Arial", 14)).pack(pady=(0,20))
+        tk.Label(self.root, text="Welcome to the Visual Clustering Tool!", font=("Arial", 20)).pack(pady=(20, 30))
+        tk.Label(self.root, text="This tool allows you to iteratively cluster images into groups based on their visual descriptions.", font=("Arial", 14)).pack(pady=(0,30))
 
-        tk.Button(self.root, text="Next", command=self.show_instructions_2).pack(pady=(0,20))
+        tk.Button(self.root, text="Next", command=self.show_instructions_2, font=('Arial', 12)).pack(pady=(0,20))
 
     def show_instructions_2(self):
         for widget in self.root.winfo_children():
             widget.destroy()
-        tk.Label(self.root, text="Welcome to the Visual Clustering Tool!", font=("Arial", 20)).pack(pady=(20, 20))
-        tk.Label(self.root, text="By starting the tool, you will be guided through the following steps:", font=("Arial", 14)).pack(pady=(0,10))
+        tk.Label(self.root, text="Welcome to the Visual Clustering Tool!", font=("Arial", 20)).pack(pady=(20, 30))
+        tk.Label(self.root, text="By starting the tool, you will be guided through the following steps:", font=("Arial", 14)).pack(pady=(0,20))
         instructions = [ 
             "1. Select a CSV file containing the image descriptions and image paths.", 
-            "2. Optionally select parameters settings, or continue with the default settings.", 
+            "2. Optionally alter parameter settings, or continue with the default settings.", 
             "3. Run the clustering algorithm to generate groups of similar images.", 
-            "4. Inspect a selection of the images and the top words representing each cluster.", 
-            "5. Adjust the top words used to represent the clusters if necessary.", 
+            "4. Inspect a the clusters' images and corresponding descriptions.", 
+            "5. Adjust the clusters' top terms if necessary.", 
             "6. Repeat steps 3-5 until the clusters are satisfactory." ]
         for instruction in instructions:
-            tk.Label(self.root, text=instruction, font=("Arial", 12)).pack(padx=50, pady=(0, 3))
-        tk.Label(self.root, text="(Additional explanation will be provided during each step.)", font=("Arial", 12)).pack(pady=(17,10))
-        tk.Button(self.root, text="Start Tool", command=self.select_cluster_round).pack(pady=(10,20))
+            tk.Label(self.root, text=instruction, font=("Arial", 12)).pack(padx=50, pady=(0, 5))
+        tk.Label(self.root, text="NOTE: Additional explanation will be provided during each step.", font=("Arial", 12)).pack(pady=(15,30))
+        tk.Button(self.root, text="Start Tool", command=self.select_cluster_round, font=('Arial', 12)).pack(pady=(10,20))
 
     def select_cluster_round(self):
         for widget in self.root.winfo_children():
@@ -93,14 +107,12 @@ class ClusteringGUI:
         self.continued_clustering = False
 
         self.show_progress_banner(0, self.root)
-
-        tk.Label(self.root,text="Step 0. Start or Continue Clustering", font=("Arial", 14)).pack(pady=(10, 10))
-        tk.Label(self.root, text="[Choose whether you would like to start a new clustering process or continue an existing one]", font=("Arial", 12), wraplength=700,justify="center").pack(pady=(0, 5))
-        tk.Label(self.root, text="NOTE:", font=("Arial", 10)).pack(pady=(0,0))
-        tk.Label(self.root, text="A previous clustering process can only be continued if you have used the tool before.", font=("Arial", 10)).pack(pady=(0,20))
+        self.show_instruction_banner(self.root, "Step 0. Start or Continue Clustering", 
+                                "[Choose whether you would like to start a new clustering process or continue an existing one]", 
+                                ["NOTE: A previous clustering process can only be continued if you have used the tool before."])
 
         button_frame = tk.Frame(self.root)
-        button_frame.pack(pady=(0,20))
+        button_frame.pack(pady=(20,20))
         tk.Button(button_frame, text="Start New Clustering", command=self.show_file_selection).pack(side="left", padx=5)
         tk.Button(button_frame, text="Continue Previous Clustering", command=self.clustering_round).pack(side="left", padx=5)
 
@@ -109,27 +121,26 @@ class ClusteringGUI:
             widget.destroy()
 
         self.show_progress_banner(0, self.root)
-        
+        self.show_instruction_banner(self.root, "Step 1. File Selection", 
+                                "[Select the folder containing the previous clustering results]", 
+                                ["NOTE: Select the previous output directory, not one of the round_X subfolders."])
         self.continued_clustering = True
-        tk.Label(self.root, text="Step 0. Clustering Round Selection", font=("Arial", 14)).pack(pady=(10,10))
-        tk.Label(self.root, text="[Select the folder containing the previous clustering results]", font=("Arial", 12)).pack(pady=(0,5))
-        tk.Label(self.root, text="NOTE:", font=("Arial", 10)).pack(pady=(0,2))
-        tk.Label(self.root, text="Select the overarching folder, do not select one of the round_X subfolders.", font=("Arial", 10)).pack(pady=(0,10))
 
-        tk.Button(self.root, text="Select Clustering Folder", command=self.select_existing_output_dir).pack(pady=5)
+        tk.Button(self.root, text="Select Clustering Folder", command=self.select_existing_output_dir).pack(pady=(20,7))
         self.folder_label = tk.Label(self.root,text="No folder selected",font=("Arial", 10),wraplength=700)
         self.folder_label.pack(pady=(0, 20))
 
-        tk.Label(self.root, text="[Give the clustering round you would like to continue from]", font=("Arial", 12)).pack(pady=(0,5))
-        tk.Label(self.root, text="NOTE:", font=("Arial", 10)).pack(pady=(0,0))
-        tk.Label(self.root, text="Make sure the previous clustering rounds reach this round.", font=("Arial", 10)).pack(pady=(0,2))
-        tk.Label(self.root, text="Cluster round:.", font=("Arial", 10)).pack(pady=(0,10))
+        banner_frame = tk.Frame(self.root, bg="#CCCCCC", height=12+5+10+10)
+        banner_frame.pack(fill="x", expand=False)
+        tk.Label(banner_frame, text="[Give the clustering round you would like to continue from]", font=("Arial", 12), background="#CCCCCC").pack(pady=(5,7))
+        tk.Label(banner_frame, text="NOTE: Make sure the previous clustering rounds reach this round.", font=("Arial", 10), background="#CCCCCC").pack(pady=(0,5))
+        tk.Label(self.root, text="Cluster round:", font=("Arial", 10)).pack(pady=(20,7))
         self.round_entry = ttk.Entry(self.root)
-        self.round_entry.insert(0, "1")
-        self.round_entry.pack(pady=(0, 5))
+        self.round_entry.insert(0, "2")
+        self.round_entry.pack(pady=(0, 7))
 
         button_frame = tk.Frame(self.root)
-        button_frame.pack(pady=(0,20))
+        button_frame.pack(pady=(20,20))
         self.continue_button = tk.Button( button_frame, text="Continue", command=self.check_clustering_round, state="disabled")
         self.continue_button.pack(side="left", padx=5)
         tk.Button(button_frame, text="Back", command=self.select_cluster_round, state="normal").pack(side="left", padx=5)
@@ -161,48 +172,34 @@ class ClusteringGUI:
             return
         self.input_file = input_file
         self.round = round_number
-        self.show_file_selection()
+        self.argument_setting()
 
     def show_file_selection(self):
         for widget in self.root.winfo_children():
             widget.destroy()
 
         self.show_progress_banner(0, self.root)
-
-        tk.Label(self.root, text="Step 1. File Selection", font=("Arial", 14)).pack(pady=(10,10))
-        if self.continued_clustering:
-            tk.Label(self.root, text="[CSV file selected automatically because you have chosen to continue with previous clustering rounds]", font=("Arial", 12)).pack(pady=(0,20))
-        else:
-            tk.Label(self.root, text="[1. Select a CSV file containing the image descriptions to cluster]", font=("Arial", 12)).pack(pady=(0,5))
-            tk.Label(self.root, text="NOTE:", font=("Arial", 10)).pack(pady=(0,0))
-            tk.Label(self.root, text="The CSV file should contain the image ID's, the image paths and the corresponding descriptions.", font=("Arial", 10)).pack(pady=(0,2))
-            tk.Label(self.root, text="These variables should be stored in columns with the respective names ID, Dir, ImageID and Labels.", font=("Arial", 10)).pack(pady=(0,2))
-            tk.Label(self.root, text="Make sure the CSV file and the image directory are stored in the current working directory.", font=("Arial", 10)).pack(pady=(0,20))
-
+        self.show_instruction_banner(self.root, "Step 1. File Selection", 
+                                "[Select a CSV file containing the image descriptions to cluster]", 
+                                ["NOTE: The CSV file should contain the image ID's, the image paths and the corresponding descriptions.", "NOTE: These variables should be stored in columns with the respective names ID, Dir, ImageID and Labels.", "NOTE: Make sure the CSV file and the image directory are stored in the current working directory."])
+        
         self.file_button = tk.Button(self.root, text="Select File", command=self.import_file)
-        self.file_button.pack(pady=(0,5))
-        self.file_label = tk.Label(self.root, font=("Arial", 10))
-        self.file_label.pack(pady=(0,20))
-        self.next_button = tk.Button(self.root, text="Next", command=self.argument_setting)
+        self.file_button.pack(pady=(20,7))
+        self.file_label = tk.Label(self.root,text="No file selected",font=("Arial", 10),wraplength=700)
+        self.file_label.pack(pady=(0, 20))
 
-        if self.continued_clustering:
-            self.file_button.config(state='disabled')
-            self.file_label.config(text=f'Selected file:\n{self.input_file}')
-            self.next_button.config(state='normal')
-        else:
-            self.file_button.config(state='normal')
-            self.file_label.config(text='No file selected')
-            self.next_button.config(state='disabled')
-            tk.Label(self.root, text="[2. Give a name for the results folder]", font=("Arial", 12)).pack(pady=(0,5))
-            tk.Label(self.root, text="NOTE:", font=("Arial", 10)).pack(pady=(0,0))
-            tk.Label(self.root, text="This folder does not need to exist already.", font=("Arial", 10)).pack(pady=(0,10))
-            self.dir_entry = ttk.Entry(self.root)
-            self.dir_entry.insert(0, "clustering_results_ngram")
-            self.dir_entry.pack(pady=(0, 20))
+        banner_frame = tk.Frame(self.root, bg="#CCCCCC", height=12+5+10+10)
+        banner_frame.pack(fill="x", expand=False)
+        tk.Label(banner_frame, text="[Give a name for the output directory]", font=("Arial", 12), background="#CCCCCC").pack(pady=(5,7))
+        tk.Label(banner_frame, text="NOTE: This folder does not need to exist already.", font=("Arial", 10), background="#CCCCCC").pack(pady=(0,5))
+        tk.Label(self.root, text="Cluster round:", font=("Arial", 10)).pack(pady=(20,7))
+        self.dir_entry = ttk.Entry(self.root)
+        self.dir_entry.insert(0, "clustering_results_ngram")
+        self.dir_entry.pack(pady=(0, 20))
 
         button_frame = tk.Frame(self.root)
         button_frame.pack(pady=(0,20))
-        self.next_button = tk.Button( button_frame, text="Continue", command=self.argument_setting, state="disabled")
+        self.next_button = tk.Button(button_frame, text="Continue", command=self.argument_setting, state="disabled")
         self.next_button.pack(side="left", padx=5)
         tk.Button(button_frame, text="Back", command=self.select_cluster_round, state="normal").pack(side="left", padx=5)
 
@@ -225,19 +222,17 @@ class ClusteringGUI:
             widget.destroy()
 
         self.show_progress_banner(1, self.root)
-
-        tk.Label(self.root, text="Step 2. Parameter Setting", font=("Arial", 14)).pack(pady=(10, 10))
-        tk.Label(self.root, text="[Set the parameters used during clustering]", font=("Arial", 12)).pack(pady=(0,10))
-        tk.Label(self.root, text="NOTE:", font=("Arial", 10)).pack(pady=(0,0))
-        note_label = tk.Label(self.root, text="If no changes are made, the default values will be used.", font=("Arial", 10))
-        note_label.pack(pady=(0, 10))
-
         if self.continued_clustering:
-            note_label.config(text="The parameters used during the previous clustering rounds has been set.")
+            note_list = ["NOTE: The parameters used during the previous clustering rounds has been set."]
             parameters_file = os.path.join(self.output_dir, "parameters.json")
             with open(parameters_file, "r", encoding="utf-8") as f:
                 arguments = json.load(f)
-
+        else: 
+            note_list = ["NOTE: If no changes are made, the default values will be used."]
+        self.show_instruction_banner(self.root, "Step 2. Parameter Setting", 
+                                "[Set the parameters used during clustering]", 
+                                note_list)
+        
         self.arguments = create_argument_settings(self.root, arguments)
 
         self.next_button = tk.Button(self.root, text="Next", command=self.cluster)
@@ -306,12 +301,14 @@ class ClusteringGUI:
         return True, None
 
 
-    def done(self):
-        tk.Label(self.root, text="Clustering process has ended.", font=("Arial", 20)).pack(pady=(20, 20))
-        tk.Label(self.root, text=f"The clustering results are saved in {self.output_dir}.", font=("Arial", 14)).pack(pady=(0,10))
-        tk.Label(self.root, text=f"This folder contains subfolders round_X containing the resuls of the different clustering rounds.", font=("Arial", 14)).pack(pady=(0,10))
-        tk.Label(self.root, text=f"The cluster_terms.csv file contains information about which images are clustered under which terms.", font=("Arial", 14)).pack(pady=(0,10))
-        tk.Label(self.root, text=f"The updated_input_file.csv file contains the image altered descriptions.", font=("Arial", 14)).pack(pady=(0,10))
+    def end_tool(self):
+        for widget in self.root.winfo_children():
+            widget.destroy()
+        tk.Label(self.root, text="Clustering tool has been terminated.", font=("Arial", 20)).pack(pady=(20, 20))
+        tk.Label(self.root, text=f"All clustering results are saved in {self.output_dir}.", font=("Arial", 14)).pack(pady=(0,10))
+        tk.Label(self.root, text=f"The output directory contains subfolders 'round_X' containing the resuls of the different clustering rounds.", font=("Arial", 14)).pack(pady=(0,10))
+        tk.Label(self.root, text=f"The clusters and correspongin top terms can be found in cluster_terms.csv.", font=("Arial", 14)).pack(pady=(0,10))
+        tk.Label(self.root, text=f"The alterered image descriptions can be found in updated_input_file.csv.", font=("Arial", 14)).pack(pady=(0,10))
         tk.Label(self.root, text=f"The window can now be closed.", font=("Arial", 14)).pack(pady=(0, 10))
 
 
