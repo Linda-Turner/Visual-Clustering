@@ -593,29 +593,26 @@ class ClusterView:
                     out.write(f"{ass_row}\n")
             out.close() 
 
-        if self.round == 1:
-            self.input_file = os.path.join(self.next_output_dir, "updated_input_file.csv")
-            self.update_cluster_view(10)
-        elif self.round==2:
-            self.input_file = os.path.join(self.next_output_dir, "updated_input_file.csv")
-            self.update_cluster_view(0)
-        else:   
-            cluster_updates = os.path.join(self.round_output_dir, "cluster_updates.csv")
-            os.makedirs(self.next_output_dir, exist_ok=True)
-            with open(cluster_updates, 'w', encoding='utf-8', newline='') as out:
-                out.write('cluster_id,term,delete,new_term\n')
-                for cluster in self.clusters:
-                    for term_dict in cluster["terms"]:
-                        term = term_dict["original_term"]
-                        delete = str(term_dict["selected"])
-                        text = term_dict["term"]
-                        if "->" in text:
-                            new_term = text.split("->", 1)[1].strip()
-                        else:
-                            new_term = ""
-                        out.write(f"{cluster['cluster_id']},{term},{delete},{new_term}\n")
-            out.close() 
-            threading.Thread(target=self.update_texts_background, args=(), daemon=True).start()
+        # if self.round == 1:
+        #     self.input_file = os.path.join(self.next_output_dir, "updated_input_file.csv")
+        #     self.update_cluster_view(10)
+
+        cluster_updates = os.path.join(self.round_output_dir, "cluster_updates.csv")
+        os.makedirs(self.next_output_dir, exist_ok=True)
+        with open(cluster_updates, 'w', encoding='utf-8', newline='') as out:
+            out.write('cluster_id,term,delete,new_term\n')
+            for cluster in self.clusters:
+                for term_dict in cluster["terms"]:
+                    term = term_dict["original_term"]
+                    delete = str(term_dict["selected"])
+                    text = term_dict["term"]
+                    if "->" in text:
+                        new_term = text.split("->", 1)[1].strip()
+                    else:
+                        new_term = ""
+                    out.write(f"{cluster['cluster_id']},{term},{delete},{new_term}\n")
+        out.close() 
+        threading.Thread(target=self.update_texts_background, args=(), daemon=True).start()
 
     def update_texts_background(self):
         def progress_callback(current, total, message):

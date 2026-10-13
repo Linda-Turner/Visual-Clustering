@@ -21,7 +21,7 @@ def orchestrate_clustering(input_file, round_output_dir,previous_output_dir, num
     reduction_model = arguments["reduction_model"]
     components = int(arguments["components"])
     neighbors = int(arguments["neighbors"])
-    if round > 2:
+    if round > 1:
         # Embed
         step_callback("Step 1/4: Embedding")
         embed(input_file=input_file, output_file='embeddings.csv', 
@@ -46,12 +46,12 @@ def orchestrate_clustering(input_file, round_output_dir,previous_output_dir, num
             min_cluster_size=min_cluster_size, num_clusters=num_clusters,
             indeterminate_callback=indeterminate_callback)
         cluster_filepath = os.path.join(round_output_dir, 'clusters.csv')
-    
+
         # Analyze
         step_callback("Step 4/4: Cluster Analysis")
         cluster_terms_filepath = get_cluster_descriptions(input_file=input_file, output_dir=round_output_dir,
                             embedding_file=reduction_filepath, clusters_file=cluster_filepath,
-                            cluster_descriptions_file='cluster_descriptions.csv', cluster_division_file="cluster_division.csv",
+                            cluster_descriptions_file='cluster_descriptions.csv', cluster_division_file="cluster_texts.csv",
                             cluster_2d_plot_file='cluster_visualization.png', cluster_centroid_hm_file='cluster_heatmap.png',
                             num_terms=num_keys, 
                             progress_callback=progress_callback, indeterminate_callback=indeterminate_callback)

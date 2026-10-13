@@ -1,6 +1,7 @@
 clustering_results/
 clustering_results_ngram/
 data/
+clustering_results_test/
 
 cl-vis.png
 instructions.txt
