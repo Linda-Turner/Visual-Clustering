@@ -20,7 +20,7 @@ python -m pip install -r requirements.txt
 
 **4. Run code**
 
-python -m scripts.GUI.clustering_tool
+python -m scripts.GUI.clustering_tool.py
 
 
 ### Input data
